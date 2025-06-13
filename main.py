@@ -1,13 +1,12 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
-import openai
+from openai import OpenAI
 
 app = Flask(__name__)
 CORS(app)
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 @app.route("/")
 def home():
@@ -19,15 +18,17 @@ def chat():
     if not user_input:
         return jsonify({"error": "No input provided"}), 400
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant trained on Braden Bradshaw's resume and portfolio."},
-            {"role": "user", "content": user_input}
-        ]
-    )
-
-    return jsonify({"response": response.choices[0].message["content"]})
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4",  # or "gpt-4.0" or "gpt-4.1" depending on your access
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant trained on Braden Bradshaw's resume and portfolio."},
+                {"role": "user", "content": user_input}
+            ]
+        )
+        return jsonify({"response": response.choices[0].message.content})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
