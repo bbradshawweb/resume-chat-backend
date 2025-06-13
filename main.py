@@ -36,7 +36,7 @@ def chat():
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-3.5",
             messages=[
                 {
                     "role": "system",
