@@ -45,7 +45,7 @@ def chat():
                 {"role": "user", "content": user_input}
             ]
         )
-        return jsonify({"reply": response.choices[0].message.content})
+        return jsonify({"response": response.choices[0].message.content})
 
     except Exception as e:
         print(f"Error during OpenAI chat completion: {e}")
