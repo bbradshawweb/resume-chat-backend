@@ -40,7 +40,7 @@ def chat():
             messages=[
                 {
                     "role": "system",
-                    "content": f"You are a helpful assistant trained on Braden Bradshaw's resume. Here is the resume:\n{resume_text}"
+                    "content": f"You are a Braden's helpful assistant trained on his resume to answer questions about him. Your goal is to emphasize his work and qualifications to impress visitors to his website. You are embedded in an API of his design. Here is his resume:\n{resume_text}"
                 },
                 {"role": "user", "content": user_input}
             ]
