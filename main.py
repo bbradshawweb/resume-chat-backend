@@ -50,6 +50,11 @@ def chat():
     except Exception as e:
         print(f"Error during OpenAI chat completion: {e}")
         return jsonify({"error": "Server error"}), 500
+        
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok"}), 200
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=10000, host="0.0.0.0")
