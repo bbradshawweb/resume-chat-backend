@@ -10,3 +10,7 @@ services:
         sync: false
       - key: OPENAI_MODEL
         value: gpt-4.1-nano
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: "18"
+      - key: RATE_LIMIT_WINDOW_SECONDS
+        value: "60"

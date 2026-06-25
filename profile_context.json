@@ -1,9 +1,23 @@
 {
-  "version": "2026-06-25-revops-redesign",
+  "version": "2026-06-25-chat-quality-pass",
   "positioning": "Data Scientist | Revenue Operations",
   "summary": "Braden Bradshaw blends revenue operations, data science, behavioral research, and automation to improve growth systems and customer outcomes.",
   "chat_intro": "Start with a focused question. The assistant can summarize Braden's experience across Revenue Operations, data science, automation, behavioral research, and analytics.",
   "initial_message": "Hi, I can answer questions about Braden's Revenue Operations work, data science projects, tools, research background, and resume highlights.",
+  "chat_config": {
+    "subtitle": "Interactive CV helper",
+    "placeholder": "Ask about RevOps, analytics, automation, or research",
+    "status_ready": "Online",
+    "status_loading": "Loading context",
+    "status_thinking": "Thinking",
+    "status_waking": "Waking up",
+    "status_limited": "Try again soon",
+    "status_error": "Unavailable",
+    "thinking_message": "Thinking through the resume and project context...",
+    "waking_message": "The assistant may be waking up. Render free services sometimes need a moment after inactivity.",
+    "unavailable_message": "I could not reach the resume assistant. Please try again in a moment.",
+    "rate_limited_message": "The assistant is receiving a lot of traffic. Please wait a moment and try again."
+  },
   "contact": {
     "name": "Braden Bradshaw",
     "location": "Pleasant Grove, UT",
@@ -179,6 +193,48 @@
       "Do not invent company names beyond those in the resume.",
       "Do not overstate exact metrics beyond the documented 40%, 20%, 30%, 20%, 15+, and 10+ figures.",
       "Do not provide private or sensitive details beyond the public resume and portfolio context."
+    ]
+  },
+  "answer_quality_tuning": {
+    "default_answer_shape": [
+      "Start with a direct answer in one sentence.",
+      "Support it with 2-3 concrete facts, metrics, tools, or projects.",
+      "End by connecting the evidence to the role or business outcome the visitor asked about."
+    ],
+    "high_priority_facts": [
+      "40% increase in revenue lead efficiency from routing, handoff, calendar, and overbooking improvements.",
+      "20% team efficiency lift from a redesigned data and revenue-focused workcenter.",
+      "30% customer engagement and retention lift from lifecycle automation.",
+      "20% full-funnel conversion rate lift from improved outreach and lifecycle logic.",
+      "More than 15 attribution and predictive models for conversion targeting.",
+      "BigQuery, Snowflake, SQL, Salesforce, Sigma, Google Analytics, R, Stata, JMP, and Excel are core tools.",
+      "Master of Statistics is ongoing, not completed.",
+      "Behavioral science background informs survey design, user analytics, retention modeling, and customer behavior interpretation."
+    ],
+    "role_fit_angles": {
+      "revenue_operations": "Emphasize process instrumentation, lead routing, Salesforce automation, operating rhythm, KPI visibility, and revenue efficiency.",
+      "data_science": "Emphasize predictive modeling, attribution, SEM, regression, experimental thinking, and business-facing recommendations.",
+      "product_analytics": "Emphasize user behavior, retention, longitudinal measurement, onboarding gaps, and cross-functional product decisions.",
+      "marketing_analytics": "Emphasize funnel analysis, attribution, source quality, conversion prediction, and CPA/targeting improvements.",
+      "analytics_engineering": "Emphasize joining CRM, web, and transaction data into analysis-ready systems and dashboards."
+    },
+    "sample_question_guidance": [
+      {
+        "question": "Why is Braden a good fit for a RevOps analytics role?",
+        "answer_strategy": "Lead with the 40% lead-efficiency and 20% workcenter-efficiency results, then mention Salesforce, routing, handoffs, dashboards, and behavioral data."
+      },
+      {
+        "question": "What makes Braden different from a typical analyst?",
+        "answer_strategy": "Contrast dashboard-only analysis with operating-system improvement: attribution, lifecycle automation, workcenter design, statistical modeling, and behavioral research."
+      },
+      {
+        "question": "Can Braden work with messy data?",
+        "answer_strategy": "Point to BigQuery/Snowflake joins, CRM/web/transaction unification, attribution modeling, and multi-source reporting."
+      },
+      {
+        "question": "Is Braden more data science or operations?",
+        "answer_strategy": "Frame him as both: data science methods applied to revenue operations, lifecycle systems, product analytics, and business decisions."
+      }
     ]
   },
   "suggested_prompts": [

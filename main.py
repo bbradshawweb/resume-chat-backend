@@ -1,11 +1,16 @@
 import json
 import logging
 import os
+import time
+from collections import defaultdict, deque
+from hashlib import sha256
+from threading import Lock
 from typing import Any
 
 import fitz  # PyMuPDF
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from openai import APIConnectionError, APITimeoutError, RateLimitError
 from openai import OpenAI
 
 
@@ -17,6 +22,9 @@ MAX_MESSAGE_CHARS = int(os.getenv("MAX_MESSAGE_CHARS", "1400"))
 MAX_HISTORY_MESSAGES = int(os.getenv("MAX_HISTORY_MESSAGES", "8"))
 MAX_HISTORY_CHARS = int(os.getenv("MAX_HISTORY_CHARS", "1400"))
 OPENAI_TIMEOUT_SECONDS = float(os.getenv("OPENAI_TIMEOUT_SECONDS", "25"))
+RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
+RATE_LIMIT_MAX_REQUESTS = int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "18"))
+CLIENT_HASH_SALT = os.getenv("CLIENT_HASH_SALT", "resume-chat")
 
 DEFAULT_ALLOWED_ORIGINS = [
     "https://bradenbradshaw.com",
@@ -27,17 +35,38 @@ DEFAULT_ALLOWED_ORIGINS = [
 ]
 
 
+def configured_allowed_origins() -> list[str] | str:
+    raw_origins = os.getenv("ALLOWED_ORIGINS")
+    if not raw_origins:
+        return DEFAULT_ALLOWED_ORIGINS
+
+    origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+    return "*" if origins == ["*"] else origins
+
+
+ALLOWED_ORIGINS = configured_allowed_origins()
+rate_limit_state: dict[str, deque[float]] = defaultdict(deque)
+rate_limit_lock = Lock()
+
+
 app = Flask(__name__)
 CORS(
     app,
     resources={
-        r"/chat": {"origins": os.getenv("ALLOWED_ORIGINS", ",".join(DEFAULT_ALLOWED_ORIGINS)).split(",")},
-        r"/chat/v2": {"origins": os.getenv("ALLOWED_ORIGINS", ",".join(DEFAULT_ALLOWED_ORIGINS)).split(",")},
+        r"/chat": {"origins": ALLOWED_ORIGINS},
+        r"/chat/v2": {"origins": ALLOWED_ORIGINS},
         r"/context": {"origins": "*"},
         r"/health": {"origins": "*"},
         r"/": {"origins": "*"},
     },
 )
+
+
+@app.after_request
+def add_response_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Cache-Control", "no-store")
+    return response
 
 
 def extract_resume_text(pdf_path: str = "resume.pdf") -> str:
@@ -81,6 +110,44 @@ def clean_text(value: Any, max_chars: int) -> str:
     if not isinstance(value, str):
         return ""
     return " ".join(value.strip().split())[:max_chars]
+
+
+def client_ip() -> str:
+    forwarded_for = request.headers.get("X-Forwarded-For", "")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.remote_addr or "unknown"
+
+
+def client_hash() -> str:
+    digest = sha256(f"{CLIENT_HASH_SALT}:{client_ip()}".encode("utf-8")).hexdigest()
+    return digest[:12]
+
+
+def check_rate_limit(key: str) -> tuple[bool, int]:
+    now = time.time()
+    window_start = now - RATE_LIMIT_WINDOW_SECONDS
+
+    with rate_limit_lock:
+        attempts = rate_limit_state[key]
+        while attempts and attempts[0] < window_start:
+            attempts.popleft()
+
+        if len(attempts) >= RATE_LIMIT_MAX_REQUESTS:
+            retry_after = max(1, int(RATE_LIMIT_WINDOW_SECONDS - (now - attempts[0])))
+            return False, retry_after
+
+        attempts.append(now)
+        return True, 0
+
+
+def log_chat_event(event: str, **metadata: Any) -> None:
+    safe_metadata = {
+        key: value
+        for key, value in metadata.items()
+        if isinstance(value, (str, int, float, bool, type(None)))
+    }
+    logger.info("chat_event=%s %s", event, json.dumps(safe_metadata, sort_keys=True))
 
 
 def normalize_history(raw_history: Any, current_message: str) -> list[dict[str, str]]:
@@ -159,6 +226,9 @@ Voice and behavior:
 - If the answer is not in the context, say that you do not have that detail and pivot to the closest relevant known experience.
 - For hiring or fit questions, connect evidence to business outcomes.
 - Keep most answers to 2-4 short paragraphs unless the user asks for detail.
+- When a question is broad or vague, choose the strongest documented angle and answer with specific projects or metrics rather than generic traits.
+- Prefer practical business language over academic jargon unless the user asks about statistical methods.
+- Mention limitations plainly when needed: for example, the Master of Statistics is ongoing.
 
 Priority context:
 1. Structured portfolio and updated resume context below.
@@ -204,6 +274,7 @@ def context():
             "summary": profile_context.get("summary"),
             "chat_intro": profile_context.get("chat_intro"),
             "initial_message": profile_context.get("initial_message"),
+            "chat_config": profile_context.get("chat_config", {}),
             "prompt_chips": profile_context.get("prompt_chips", []),
             "suggested_prompts": profile_context.get("suggested_prompts", []),
             "follow_up_prompts": follow_up_prompts.get("general", []),
@@ -221,13 +292,38 @@ def chat():
     if not user_input:
         return jsonify({"error": "No input provided"}), 400
 
+    client_key = client_hash()
+    allowed, retry_after = check_rate_limit(client_key)
+    if not allowed:
+        log_chat_event("rate_limited", client=client_key, retry_after=retry_after)
+        response = jsonify(
+            {
+                "error": "Too many requests",
+                "message": "The resume assistant is receiving a lot of traffic. Please try again shortly.",
+                "retry_after": retry_after,
+            }
+        )
+        response.status_code = 429
+        response.headers["Retry-After"] = str(retry_after)
+        return response
+
     client = get_openai_client()
     if client is None:
         logger.error("OPENAI_API_KEY is not configured.")
+        log_chat_event("missing_api_key", client=client_key)
         return jsonify({"error": "Chat is not configured"}), 503
 
     history = normalize_history(payload.get("history"), user_input)
     page_context = summarize_page_context(payload.get("page_context"))
+    started_at = time.perf_counter()
+    log_chat_event(
+        "request_started",
+        client=client_key,
+        message_chars=len(user_input),
+        history_used=len(history),
+        page_context=bool(page_context),
+        origin=request.headers.get("Origin"),
+    )
 
     try:
         response = client.chat.completions.create(
@@ -247,9 +343,37 @@ def chat():
             }
         )
 
+    except RateLimitError as exc:
+        logger.warning("OpenAI rate limit during chat completion: %s", exc)
+        log_chat_event("upstream_rate_limited", client=client_key)
+        response = jsonify(
+            {
+                "error": "Assistant is busy",
+                "message": "The assistant is temporarily busy. Please try again in a moment.",
+                "retry_after": 20,
+            }
+        )
+        response.status_code = 429
+        response.headers["Retry-After"] = "20"
+        return response
+
+    except (APITimeoutError, APIConnectionError) as exc:
+        logger.warning("OpenAI connection issue during chat completion: %s", exc)
+        log_chat_event("upstream_unavailable", client=client_key)
+        return jsonify(
+            {
+                "error": "Assistant unavailable",
+                "message": "The assistant is waking up or temporarily unreachable. Please try again in a moment.",
+            }
+        ), 503
+
     except Exception as exc:
         logger.exception("Error during OpenAI chat completion: %s", exc)
+        log_chat_event("server_error", client=client_key)
         return jsonify({"error": "Server error"}), 500
+    finally:
+        elapsed_ms = round((time.perf_counter() - started_at) * 1000)
+        log_chat_event("request_finished", client=client_key, elapsed_ms=elapsed_ms)
 
 
 @app.route("/health", methods=["GET"])
