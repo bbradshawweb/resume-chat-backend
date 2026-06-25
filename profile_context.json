@@ -1,22 +1,22 @@
 {
-  "version": "2026-06-25-revops-intelligence-platform",
+  "version": "2026-06-25-first-person-chat-framing",
   "positioning": "Data Scientist | Revenue Operations Intelligence",
-  "summary": "Braden Bradshaw builds revenue operations intelligence systems that connect lead scoring, intelligent routing, rep performance monitoring, dashboards, automation, behavioral research, and predictive analytics.",
-  "chat_intro": "Start with a focused question. The assistant can summarize Braden's Revenue Operations platform work, lead scoring model, data science projects, automation, behavioral research, and analytics.",
-  "initial_message": "Hi, I can answer questions about Braden's Revenue Operations Intelligence Platform, lead scoring and routing systems, data science projects, tools, research background, and resume highlights.",
+  "summary": "I build revenue operations intelligence systems that connect lead scoring, intelligent routing, rep performance monitoring, dashboards, automation, behavioral research, and predictive analytics.",
+  "chat_intro": "Start with a focused question. Ask my resume about my Revenue Operations platform work, lead scoring model, data science projects, automation, behavioral research, and analytics.",
+  "initial_message": "Hi, ask me about my Revenue Operations Intelligence Platform, lead scoring and routing systems, data science projects, tools, research background, and resume highlights.",
   "chat_config": {
-    "subtitle": "Interactive CV helper",
-      "placeholder": "Ask about RevOps systems, analytics, automation, or research",
+    "subtitle": "Interactive resume chat",
+    "placeholder": "Ask my resume about RevOps systems, analytics, automation, or research",
     "status_ready": "Online",
     "status_loading": "Loading context",
-    "status_thinking": "Thinking",
+    "status_thinking": "Waking up",
     "status_waking": "Waking up",
     "status_limited": "Try again soon",
     "status_error": "Unavailable",
-    "thinking_message": "Thinking through the resume and project context...",
-    "waking_message": "The assistant may be waking up. Render free services sometimes need a moment after inactivity.",
-    "unavailable_message": "I could not reach the resume assistant. Please try again in a moment.",
-    "rate_limited_message": "The assistant is receiving a lot of traffic. Please wait a moment and try again."
+    "thinking_message": "waking assistant up",
+    "waking_message": "waking assistant up",
+    "unavailable_message": "I could not reach my resume assistant. Please try again in a moment.",
+    "rate_limited_message": "My resume assistant is receiving a lot of traffic. Please wait a moment and try again."
   },
   "contact": {
     "name": "Braden Bradshaw",
@@ -244,78 +244,82 @@
     },
     "sample_question_guidance": [
       {
-        "question": "Why is Braden a good fit for a RevOps analytics role?",
+        "question": "Why are you a good fit for a RevOps analytics role?",
         "answer_strategy": "Lead with the Revenue Operations Intelligence Platform, the lead probability scoring model, and the 40% lead-efficiency and 20% team-efficiency results, then mention Salesforce, routing, monitoring, dashboards, and behavioral data."
       },
       {
-        "question": "What makes Braden different from a typical analyst?",
+        "question": "What makes you different from a typical analyst?",
         "answer_strategy": "Contrast dashboard-only analysis with operating-system improvement: lead scoring, routing, rep performance monitoring, attribution, lifecycle automation, statistical modeling, and behavioral research."
       },
       {
-        "question": "Can Braden work with messy data?",
+        "question": "Can you work with messy data?",
         "answer_strategy": "Point to BigQuery/Snowflake joins, CRM/web/transaction unification, attribution modeling, and multi-source reporting."
       },
       {
-        "question": "Is Braden more data science or operations?",
-        "answer_strategy": "Frame him as both: data science methods applied to revenue operations, lifecycle systems, product analytics, and business decisions."
+        "question": "Are you more data science or operations?",
+        "answer_strategy": "Frame the answer as both: data science methods applied to revenue operations, lifecycle systems, product analytics, and business decisions."
       }
     ]
   },
   "suggested_prompts": [
-    "What is Braden's Revenue Operations Intelligence Platform?",
-    "How does Braden's lead scoring model inform routing?",
-    "How has Braden improved revenue operations?",
-    "What data science projects has Braden led?",
-    "How does Braden combine behavioral science and analytics?",
-    "What makes Braden a strong fit for a RevOps analytics role?"
+    "What is your Revenue Operations Intelligence Platform?",
+    "How does your lead scoring model inform routing?",
+    "What do you do for revenue growth?",
+    "What analytics projects have you led?",
+    "How do you combine behavioral science and analytics?",
+    "Why are you a strong fit for a RevOps analytics role?"
   ],
   "prompt_chips": [
     {
       "label": "RevOps platform",
-      "prompt": "What is Braden's Revenue Operations Intelligence Platform?"
+      "prompt": "What is your Revenue Operations Intelligence Platform?"
     },
     {
       "label": "Lead scoring",
-      "prompt": "How does Braden's lead scoring model inform routing?"
+      "prompt": "How does your lead scoring model inform routing?"
+    },
+    {
+      "label": "Revenue growth",
+      "prompt": "What do you do for revenue growth?"
     },
     {
       "label": "Analytics projects",
-      "prompt": "What data science projects has Braden led?"
+      "prompt": "What analytics projects have you led?"
     },
     {
       "label": "Behavioral science",
-      "prompt": "How does Braden combine behavioral science and analytics?"
+      "prompt": "How do you combine behavioral science and analytics?"
     },
     {
       "label": "Tools and stack",
-      "prompt": "What tools does Braden use?"
+      "prompt": "What tools do you use?"
     },
     {
       "label": "Role fit",
-      "prompt": "What makes Braden a strong fit for a RevOps analytics role?"
+      "prompt": "Why are you a strong fit for a RevOps analytics role?"
     }
   ],
   "follow_up_prompts": {
     "general": [
       "Can you give me a concrete example?",
-      "Which project best shows that skill?",
+      "Which of your projects best shows that skill?",
       "How would that translate to a business role?"
     ],
     "revenue_operations": [
-      "How does the lead scoring model inform routing?",
-      "What performance monitoring systems has Braden built?",
-      "How do probation and coaching systems use the data?",
-      "Which RevOps tools and systems were involved?"
+      "How does your lead scoring model inform routing?",
+      "What performance monitoring systems have you built?",
+      "How do your probation and coaching systems use the data?",
+      "Which RevOps tools and systems do you use?"
     ],
     "data_science": [
       "What data sources went into that analysis?",
-      "How were the models used for business decisions?",
-      "Which dashboard or project best demonstrates this?"
+      "How did you use those models for business decisions?",
+      "Which of your dashboards or projects best demonstrates this?"
     ],
     "research": [
-      "How does behavioral science shape Braden's analytics work?",
-      "What research methods has Braden used?",
-      "How does Braden communicate statistical findings?"
+      "How does behavioral science shape your analytics work?",
+      "What research methods have you used?",
+      "How do you communicate statistical findings?"
     ]
   }
 }
