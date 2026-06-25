@@ -1,0 +1,189 @@
+{
+  "version": "2026-06-25-revops-redesign",
+  "positioning": "Data Scientist | Revenue Operations",
+  "summary": "Braden Bradshaw blends revenue operations, data science, behavioral research, and automation to improve growth systems and customer outcomes.",
+  "contact": {
+    "name": "Braden Bradshaw",
+    "location": "Pleasant Grove, UT",
+    "email": "bradshaw.braden@gmail.com",
+    "website": "bradenbradshaw.com"
+  },
+  "current_role": {
+    "title": "Lead Operations & Marketing Data Scientist",
+    "company": "AlterMe",
+    "dates": "August 2024 - Present",
+    "focus": [
+      "Product analytics",
+      "Marketing analytics",
+      "Revenue Operations",
+      "Sales operations",
+      "Customer lifecycle automation",
+      "Attribution modeling",
+      "KPI systems"
+    ],
+    "highlights": [
+      "Owns product and marketing analytics across customer behavior, web engagement, and internal operations.",
+      "Increased revenue lead efficiency by 40% with standardized calendars, overbooking strategy, smart lead routing, and behavior-informed handoffs.",
+      "Overhauled a team workcenter with a data and revenue-focused model, improving team efficiency by 20%.",
+      "Built personalized AI training and coaching support with comparative performance insights.",
+      "Built predictive models including logistic regression and multivariate analysis to quantify client success probabilities.",
+      "Designed and maintained dashboards in Sigma, Salesforce, and Google Analytics.",
+      "Developed multi-touch attribution using web traffic, marketing source, CRM activity, and transaction data.",
+      "Automated lifecycle flows with Salesforce Flows and Webhooks for SMS, email, drip campaigns, and internal workflows.",
+      "Joined BigQuery and Snowflake datasets to connect web analytics, CRM, and transactional data."
+    ]
+  },
+  "education": [
+    {
+      "degree": "Master of Statistics",
+      "school": "University of Utah",
+      "status": "Ongoing",
+      "coursework": [
+        "Advanced Statistical Analysis",
+        "Regression Modeling",
+        "Structural Equation Modeling",
+        "Sociological Statistics",
+        "Statistical Inference",
+        "Population Techniques"
+      ]
+    },
+    {
+      "degree": "Bachelor of Science in Psychology",
+      "school": "Brigham Young University",
+      "coursework": [
+        "Advanced Statistical Analysis",
+        "Psychopathology",
+        "Clinical Psychology",
+        "Positive Psychology",
+        "Statistical Methods for Research"
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "Revenue operations workcenter redesign",
+      "themes": ["Revenue Operations", "Salesforce", "AI coaching", "Lead routing", "Operational analytics"],
+      "outcomes": [
+        "40% increase in revenue lead efficiency",
+        "20% increase in team efficiency"
+      ],
+      "details": [
+        "Standardized calendars and overbooking strategy.",
+        "Implemented smart lead routing and cleaner handoff logic.",
+        "Built comparative insights and AI-enabled coaching into team operations."
+      ]
+    },
+    {
+      "name": "Sales funnel attribution model",
+      "themes": ["Attribution", "CRM", "Web analytics", "Predictive modeling"],
+      "outcomes": [
+        "Built more than 15 models to estimate and predict conversion rates",
+        "Identified more than 10 targeting opportunities for leadership"
+      ],
+      "details": [
+        "Integrated Google Analytics, Salesforce, and transaction data.",
+        "Used logistic regression to estimate conversion probabilities.",
+        "Delivered weekly Sigma dashboards for marketing leadership."
+      ]
+    },
+    {
+      "name": "Customer lifecycle automation",
+      "themes": ["Lifecycle marketing", "Salesforce Flows", "Webhooks", "Customer outreach"],
+      "outcomes": [
+        "30% lift in customer engagement and retention",
+        "20% lift in full-funnel conversion rate"
+      ],
+      "details": [
+        "Designed full multi-medium outreach inside Salesforce.",
+        "Mapped cadence flow for leadership review.",
+        "Automated SMS, email, and internal workflow touchpoints."
+      ]
+    },
+    {
+      "name": "Structural equation model for user engagement and retention",
+      "themes": ["SEM", "Retention", "Behavioral analytics", "Latent constructs"],
+      "outcomes": [
+        "Connected behavioral constructs to tangible user outcomes",
+        "Identified a product-expectation gap for onboarding and retention strategy"
+      ],
+      "details": [
+        "Modeled latent constructs for excitement, engagement, and issues.",
+        "Created clusters based on engagement and retention propensity."
+      ]
+    },
+    {
+      "name": "Quarterly insight reporting",
+      "themes": ["Statistical reporting", "Executive dashboards", "KPI analysis"],
+      "outcomes": [
+        "Translated broad operational questions into evidence-based recommendations"
+      ],
+      "details": [
+        "Identified and visualized KPIs.",
+        "Analyzed conversion-rate shifts between quarters.",
+        "Delivered trend interpretation and action items."
+      ]
+    }
+  ],
+  "skills": {
+    "data_and_statistics": [
+      "Predictive modeling",
+      "Regression analysis",
+      "KPI modeling",
+      "Factor analysis",
+      "Multi-touch attribution",
+      "Survey design",
+      "Structural equation modeling"
+    ],
+    "revenue_operations": [
+      "Lead routing",
+      "Salesforce CRM",
+      "Salesforce Flows",
+      "Webhooks",
+      "Lifecycle automation",
+      "Sales operations dashboards",
+      "Customer journey mapping",
+      "Workcenter optimization"
+    ],
+    "tools": [
+      "R",
+      "Stata",
+      "JMP",
+      "Excel",
+      "SQL",
+      "BigQuery",
+      "Snowflake",
+      "Sigma",
+      "Salesforce CRM",
+      "Google Analytics",
+      "Google Data Studio"
+    ],
+    "business_and_research": [
+      "Data-driven strategy",
+      "Report building",
+      "Cross-functional collaboration",
+      "Behavioral research",
+      "Longitudinal studies",
+      "Statistical communication"
+    ]
+  },
+  "response_guidance": {
+    "preferred_framing": [
+      "Revenue Operations powered by data science",
+      "Analytics that improve operating systems, not just dashboards",
+      "Behavioral science foundation applied to growth, lifecycle, and product questions"
+    ],
+    "avoid": [
+      "Do not imply the Master of Statistics is completed.",
+      "Do not invent company names beyond those in the resume.",
+      "Do not overstate exact metrics beyond the documented 40%, 20%, 30%, 20%, 15+, and 10+ figures.",
+      "Do not provide private or sensitive details beyond the public resume and portfolio context."
+    ]
+  },
+  "suggested_prompts": [
+    "How has Braden improved revenue operations?",
+    "What data science projects has Braden led?",
+    "How does Braden combine behavioral science and analytics?",
+    "What tools does Braden use?",
+    "What makes Braden a strong fit for a RevOps analytics role?"
+  ]
+}

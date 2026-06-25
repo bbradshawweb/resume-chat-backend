@@ -2,3 +2,4 @@ flask
 openai
 flask-cors
 pymupdf
+gunicorn
