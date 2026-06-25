@@ -123,6 +123,24 @@ def summarize_page_context(raw_context: Any) -> str:
     return json.dumps(safe_context, ensure_ascii=True)
 
 
+def pick_followups(user_message: str, answer: str) -> list[str]:
+    prompt_groups = profile_context.get("follow_up_prompts", {})
+    if not isinstance(prompt_groups, dict):
+        return []
+
+    combined = f"{user_message} {answer}".lower()
+    group_name = "general"
+    if any(term in combined for term in ("revenue", "revops", "lead", "salesforce", "routing", "handoff", "workcenter")):
+        group_name = "revenue_operations"
+    elif any(term in combined for term in ("model", "analytics", "attribution", "dashboard", "predictive", "statistics", "kpi")):
+        group_name = "data_science"
+    elif any(term in combined for term in ("research", "behavior", "psychology", "survey", "longitudinal", "publication")):
+        group_name = "research"
+
+    prompts = prompt_groups.get(group_name) or prompt_groups.get("general") or []
+    return [prompt for prompt in prompts[:3] if isinstance(prompt, str)]
+
+
 def build_system_prompt(page_context: str) -> str:
     context_json = json.dumps(profile_context, ensure_ascii=True, indent=2)
 
@@ -175,11 +193,21 @@ def index():
 
 @app.route("/context", methods=["GET"])
 def context():
+    follow_up_prompts = profile_context.get("follow_up_prompts", {})
+    if not isinstance(follow_up_prompts, dict):
+        follow_up_prompts = {}
+
     return jsonify(
         {
             "version": profile_context.get("version", "unknown"),
             "positioning": profile_context.get("positioning"),
+            "summary": profile_context.get("summary"),
+            "chat_intro": profile_context.get("chat_intro"),
+            "initial_message": profile_context.get("initial_message"),
+            "prompt_chips": profile_context.get("prompt_chips", []),
             "suggested_prompts": profile_context.get("suggested_prompts", []),
+            "follow_up_prompts": follow_up_prompts.get("general", []),
+            "preferred_framing": profile_context.get("response_guidance", {}).get("preferred_framing", []),
             "model": MODEL,
         }
     )
@@ -215,6 +243,7 @@ def chat():
                 "model": MODEL,
                 "history_used": len(history),
                 "context_version": profile_context.get("version", "unknown"),
+                "suggested_followups": pick_followups(user_input, answer),
             }
         )
 

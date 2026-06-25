@@ -2,6 +2,8 @@
   "version": "2026-06-25-revops-redesign",
   "positioning": "Data Scientist | Revenue Operations",
   "summary": "Braden Bradshaw blends revenue operations, data science, behavioral research, and automation to improve growth systems and customer outcomes.",
+  "chat_intro": "Start with a focused question. The assistant can summarize Braden's experience across Revenue Operations, data science, automation, behavioral research, and analytics.",
+  "initial_message": "Hi, I can answer questions about Braden's Revenue Operations work, data science projects, tools, research background, and resume highlights.",
   "contact": {
     "name": "Braden Bradshaw",
     "location": "Pleasant Grove, UT",
@@ -185,5 +187,49 @@
     "How does Braden combine behavioral science and analytics?",
     "What tools does Braden use?",
     "What makes Braden a strong fit for a RevOps analytics role?"
-  ]
+  ],
+  "prompt_chips": [
+    {
+      "label": "Revenue ops impact",
+      "prompt": "How has Braden improved revenue operations?"
+    },
+    {
+      "label": "Analytics projects",
+      "prompt": "What data science projects has Braden led?"
+    },
+    {
+      "label": "Behavioral science",
+      "prompt": "How does Braden combine behavioral science and analytics?"
+    },
+    {
+      "label": "Tools and stack",
+      "prompt": "What tools does Braden use?"
+    },
+    {
+      "label": "Role fit",
+      "prompt": "What makes Braden a strong fit for a RevOps analytics role?"
+    }
+  ],
+  "follow_up_prompts": {
+    "general": [
+      "Can you give me a concrete example?",
+      "Which project best shows that skill?",
+      "How would that translate to a business role?"
+    ],
+    "revenue_operations": [
+      "What changed in the lead routing process?",
+      "How did the workcenter redesign improve efficiency?",
+      "Which RevOps tools and systems were involved?"
+    ],
+    "data_science": [
+      "What data sources went into that analysis?",
+      "How were the models used for business decisions?",
+      "Which dashboard or project best demonstrates this?"
+    ],
+    "research": [
+      "How does behavioral science shape Braden's analytics work?",
+      "What research methods has Braden used?",
+      "How does Braden communicate statistical findings?"
+    ]
+  }
 }
