@@ -4,6 +4,8 @@ import os
 import re
 import smtplib
 import time
+import urllib.error
+import urllib.request
 from collections import defaultdict, deque
 from email.message import EmailMessage
 from email.utils import formatdate
@@ -48,6 +50,9 @@ NOTIFICATION_FROM_EMAIL = (
 )
 NOTIFICATION_MIN_SCORE = int(os.getenv("NOTIFICATION_MIN_SCORE", "7"))
 NOTIFICATION_COOLDOWN_SECONDS = int(os.getenv("NOTIFICATION_COOLDOWN_SECONDS", "21600"))
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+RESEND_API_URL = os.getenv("RESEND_API_URL", "https://api.resend.com/emails")
+RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL")
 SMTP_HOST = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USERNAME = os.getenv("SMTP_USERNAME")
@@ -216,12 +221,17 @@ def is_valid_email(value: str) -> bool:
 
 
 def notification_configured() -> bool:
-    return bool(
-        NOTIFICATION_ENABLED
-        and NOTIFICATION_TO_EMAIL
-        and NOTIFICATION_FROM_EMAIL
-        and SMTP_HOST
-    )
+    has_resend = bool(RESEND_API_KEY and (RESEND_FROM_EMAIL or NOTIFICATION_FROM_EMAIL))
+    has_smtp = bool(NOTIFICATION_FROM_EMAIL and SMTP_HOST)
+    return bool(NOTIFICATION_ENABLED and NOTIFICATION_TO_EMAIL and (has_resend or has_smtp))
+
+
+def notification_provider() -> str:
+    if RESEND_API_KEY and (RESEND_FROM_EMAIL or NOTIFICATION_FROM_EMAIL):
+        return "resend"
+    if NOTIFICATION_FROM_EMAIL and SMTP_HOST:
+        return "smtp"
+    return "none"
 
 
 def score_conversation_strength(
@@ -453,7 +463,57 @@ Recent transcript:
     return message
 
 
-def deliver_notification_email(message: EmailMessage, client_key: str, score: int) -> bool:
+def deliver_resend_email(message: EmailMessage, client_key: str, score: int) -> bool:
+    from_email = RESEND_FROM_EMAIL or NOTIFICATION_FROM_EMAIL
+    if not RESEND_API_KEY or not from_email:
+        return False
+
+    payload = {
+        "from": from_email,
+        "to": [NOTIFICATION_TO_EMAIL],
+        "subject": message["Subject"],
+        "text": message.get_content(),
+    }
+    if message.get("Reply-To"):
+        payload["headers"] = {"Reply-To": message["Reply-To"]}
+    request_body = json.dumps(payload).encode("utf-8")
+    api_request = urllib.request.Request(
+        RESEND_API_URL,
+        data=request_body,
+        headers={
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(api_request, timeout=SMTP_TIMEOUT_SECONDS) as response:
+            response_body = response.read().decode("utf-8", errors="replace")
+            log_chat_event(
+                "notification_sent",
+                client=client_key,
+                score=score,
+                provider="resend",
+                provider_status=response.status,
+            )
+            logger.info("resend_response=%s", response_body)
+            return 200 <= response.status < 300
+    except urllib.error.HTTPError as exc:
+        error_body = exc.read().decode("utf-8", errors="replace")
+        logger.error("Resend email request failed status=%s body=%s", exc.code, error_body)
+        log_chat_event("notification_failed", client=client_key, score=score, provider="resend", provider_status=exc.code)
+    except Exception as exc:
+        logger.exception("Failed to send Resend notification email: %s", exc)
+        log_chat_event("notification_failed", client=client_key, score=score, provider="resend")
+
+    return False
+
+
+def deliver_smtp_email(message: EmailMessage, client_key: str, score: int) -> bool:
+    if not NOTIFICATION_FROM_EMAIL or not SMTP_HOST:
+        return False
+
     try:
         smtp_cls = smtplib.SMTP_SSL if SMTP_USE_SSL else smtplib.SMTP
         with smtp_cls(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS) as server:
@@ -463,12 +523,19 @@ def deliver_notification_email(message: EmailMessage, client_key: str, score: in
                 server.login(SMTP_USERNAME, SMTP_PASSWORD)
             server.send_message(message)
 
-        log_chat_event("notification_sent", client=client_key, score=score)
+        log_chat_event("notification_sent", client=client_key, score=score, provider="smtp")
         return True
     except Exception as exc:
-        logger.exception("Failed to send chat notification email: %s", exc)
-        log_chat_event("notification_failed", client=client_key, score=score)
+        logger.exception("Failed to send SMTP notification email: %s", exc)
+        log_chat_event("notification_failed", client=client_key, score=score, provider="smtp")
         return False
+
+
+def deliver_notification_email(message: EmailMessage, client_key: str, score: int) -> bool:
+    if RESEND_API_KEY:
+        return deliver_resend_email(message, client_key, score)
+
+    return deliver_smtp_email(message, client_key, score)
 
 
 def normalize_history(raw_history: Any, current_message: str) -> list[dict[str, str]]:
@@ -631,7 +698,7 @@ def contact():
         return jsonify(
             {
                 "error": "Contact email is not configured",
-                "message": "I could not send the contact request yet. Please email Braden directly at bradshaw.braden@gmail.com.",
+                "message": "Email sending is not fully configured yet. Your summary is still here, but please email me directly at bradshaw.braden@gmail.com for now.",
             }
         ), 503
 
@@ -675,7 +742,7 @@ def contact():
         return jsonify(
             {
                 "error": "Contact request failed",
-                "message": "I could not send the contact request. Please email Braden directly at bradshaw.braden@gmail.com.",
+                "message": "I could not send this through the site yet. Your summary is still here, but please email me directly at bradshaw.braden@gmail.com for now.",
             }
         ), 502
 
@@ -789,6 +856,7 @@ def health():
             "resume_loaded": bool(resume_text and "unavailable" not in resume_text.lower()),
             "notifications_enabled": NOTIFICATION_ENABLED,
             "notifications_configured": notification_configured(),
+            "notification_provider": notification_provider(),
         }
     ), 200
 
