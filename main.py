@@ -4,8 +4,6 @@ import os
 import re
 import smtplib
 import time
-import urllib.error
-import urllib.request
 from collections import defaultdict, deque
 from email.message import EmailMessage
 from email.utils import formatdate
@@ -14,6 +12,7 @@ from threading import Lock
 from typing import Any
 
 import fitz  # PyMuPDF
+import httpx
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from openai import APIConnectionError, APITimeoutError, RateLimitError
@@ -53,6 +52,7 @@ NOTIFICATION_COOLDOWN_SECONDS = int(os.getenv("NOTIFICATION_COOLDOWN_SECONDS", "
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 RESEND_API_URL = os.getenv("RESEND_API_URL", "https://api.resend.com/emails")
 RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL")
+RESEND_USER_AGENT = os.getenv("RESEND_USER_AGENT", "resume-chat-backend/1.0 (+https://bradenbradshaw.com)")
 SMTP_HOST = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USERNAME = os.getenv("SMTP_USERNAME")
@@ -60,6 +60,7 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 SMTP_USE_TLS = env_bool("SMTP_USE_TLS", True)
 SMTP_USE_SSL = env_bool("SMTP_USE_SSL", False)
 SMTP_TIMEOUT_SECONDS = float(os.getenv("SMTP_TIMEOUT_SECONDS", "10"))
+EMAIL_TIMEOUT_SECONDS = float(os.getenv("EMAIL_TIMEOUT_SECONDS", str(SMTP_TIMEOUT_SECONDS)))
 
 DEFAULT_ALLOWED_ORIGINS = [
     "https://bradenbradshaw.com",
@@ -232,6 +233,18 @@ def notification_provider() -> str:
     if NOTIFICATION_FROM_EMAIL and SMTP_HOST:
         return "smtp"
     return "none"
+
+
+def notification_config_status() -> dict[str, bool | str]:
+    return {
+        "provider": notification_provider(),
+        "enabled": NOTIFICATION_ENABLED,
+        "to_email_present": bool(NOTIFICATION_TO_EMAIL),
+        "resend_api_key_present": bool(RESEND_API_KEY),
+        "resend_from_present": bool(RESEND_FROM_EMAIL),
+        "notification_from_present": bool(NOTIFICATION_FROM_EMAIL),
+        "smtp_host_present": bool(SMTP_HOST),
+    }
 
 
 def score_conversation_strength(
@@ -475,35 +488,41 @@ def deliver_resend_email(message: EmailMessage, client_key: str, score: int) -> 
         "text": message.get_content(),
     }
     if message.get("Reply-To"):
-        payload["headers"] = {"Reply-To": message["Reply-To"]}
-    request_body = json.dumps(payload).encode("utf-8")
-    api_request = urllib.request.Request(
-        RESEND_API_URL,
-        data=request_body,
-        headers={
-            "Authorization": f"Bearer {RESEND_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
+        payload["reply_to"] = message["Reply-To"]
 
     try:
-        with urllib.request.urlopen(api_request, timeout=SMTP_TIMEOUT_SECONDS) as response:
-            response_body = response.read().decode("utf-8", errors="replace")
+        response = httpx.post(
+            RESEND_API_URL,
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "User-Agent": RESEND_USER_AGENT,
+            },
+            timeout=EMAIL_TIMEOUT_SECONDS,
+        )
+        if not 200 <= response.status_code < 300:
+            logger.error("Resend email request failed status=%s body=%s", response.status_code, response.text)
             log_chat_event(
-                "notification_sent",
+                "notification_failed",
                 client=client_key,
                 score=score,
                 provider="resend",
-                provider_status=response.status,
+                provider_status=response.status_code,
             )
-            logger.info("resend_response=%s", response_body)
-            return 200 <= response.status < 300
-    except urllib.error.HTTPError as exc:
-        error_body = exc.read().decode("utf-8", errors="replace")
-        logger.error("Resend email request failed status=%s body=%s", exc.code, error_body)
-        log_chat_event("notification_failed", client=client_key, score=score, provider="resend", provider_status=exc.code)
-    except Exception as exc:
+            return False
+
+        log_chat_event(
+            "notification_sent",
+            client=client_key,
+            score=score,
+            provider="resend",
+            provider_status=response.status_code,
+        )
+        logger.info("resend_response=%s", response.text)
+        return True
+    except httpx.HTTPError as exc:
         logger.exception("Failed to send Resend notification email: %s", exc)
         log_chat_event("notification_failed", client=client_key, score=score, provider="resend")
 
@@ -535,6 +554,7 @@ def deliver_notification_email(message: EmailMessage, client_key: str, score: in
     if RESEND_API_KEY:
         return deliver_resend_email(message, client_key, score)
 
+    log_chat_event("notification_provider_selected", client=client_key, provider="smtp", config=json.dumps(notification_config_status(), sort_keys=True))
     return deliver_smtp_email(message, client_key, score)
 
 
@@ -744,6 +764,7 @@ def contact():
             {
                 "error": "Contact request failed",
                 "message": "I could not send this through the site yet. Your summary is still here, but please email me directly at bradshaw.braden@gmail.com for now.",
+                "provider": notification_provider(),
             }
         ), 502
 
@@ -858,6 +879,7 @@ def health():
             "notifications_enabled": NOTIFICATION_ENABLED,
             "notifications_configured": notification_configured(),
             "notification_provider": notification_provider(),
+            "notification_config": notification_config_status(),
         }
     ), 200
 
