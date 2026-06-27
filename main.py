@@ -1,10 +1,14 @@
 import json
 import logging
 import os
+import re
+import smtplib
 import time
 from collections import defaultdict, deque
+from email.message import EmailMessage
+from email.utils import formatdate
 from hashlib import sha256
-from threading import Lock
+from threading import Lock, Thread
 from typing import Any
 
 import fitz  # PyMuPDF
@@ -17,6 +21,14 @@ from openai import OpenAI
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
+
+def env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-nano")
 MAX_MESSAGE_CHARS = int(os.getenv("MAX_MESSAGE_CHARS", "1400"))
 MAX_HISTORY_MESSAGES = int(os.getenv("MAX_HISTORY_MESSAGES", "8"))
@@ -25,6 +37,22 @@ OPENAI_TIMEOUT_SECONDS = float(os.getenv("OPENAI_TIMEOUT_SECONDS", "25"))
 RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
 RATE_LIMIT_MAX_REQUESTS = int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "18"))
 CLIENT_HASH_SALT = os.getenv("CLIENT_HASH_SALT", "resume-chat")
+NOTIFICATION_ENABLED = env_bool("NOTIFICATION_ENABLED", False)
+NOTIFICATION_TO_EMAIL = os.getenv("NOTIFICATION_TO_EMAIL", "bradshaw.braden@gmail.com")
+NOTIFICATION_FROM_EMAIL = (
+    os.getenv("NOTIFICATION_FROM_EMAIL")
+    or os.getenv("SMTP_FROM_EMAIL")
+    or os.getenv("SMTP_USERNAME")
+)
+NOTIFICATION_MIN_SCORE = int(os.getenv("NOTIFICATION_MIN_SCORE", "7"))
+NOTIFICATION_COOLDOWN_SECONDS = int(os.getenv("NOTIFICATION_COOLDOWN_SECONDS", "21600"))
+SMTP_HOST = os.getenv("SMTP_HOST")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USERNAME = os.getenv("SMTP_USERNAME")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+SMTP_USE_TLS = env_bool("SMTP_USE_TLS", True)
+SMTP_USE_SSL = env_bool("SMTP_USE_SSL", False)
+SMTP_TIMEOUT_SECONDS = float(os.getenv("SMTP_TIMEOUT_SECONDS", "10"))
 
 DEFAULT_ALLOWED_ORIGINS = [
     "https://bradenbradshaw.com",
@@ -47,6 +75,8 @@ def configured_allowed_origins() -> list[str] | str:
 ALLOWED_ORIGINS = configured_allowed_origins()
 rate_limit_state: dict[str, deque[float]] = defaultdict(deque)
 rate_limit_lock = Lock()
+notification_state: dict[str, float] = {}
+notification_lock = Lock()
 
 
 app = Flask(__name__)
@@ -150,6 +180,260 @@ def log_chat_event(event: str, **metadata: Any) -> None:
     logger.info("chat_event=%s %s", event, json.dumps(safe_metadata, sort_keys=True))
 
 
+EMAIL_PATTERN = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+
+
+def clip_text(value: str, max_chars: int = 1200) -> str:
+    if len(value) <= max_chars:
+        return value
+    return f"{value[: max_chars - 3]}..."
+
+
+def matched_terms(text: str, terms: tuple[str, ...]) -> list[str]:
+    matches = set()
+    for term in terms:
+        if re.search(rf"\b{re.escape(term)}\b", text):
+            matches.add(term)
+    return sorted(matches)
+
+
+def extract_visitor_emails(transcript_text: str) -> list[str]:
+    return sorted(set(EMAIL_PATTERN.findall(transcript_text)))[:5]
+
+
+def notification_configured() -> bool:
+    return bool(
+        NOTIFICATION_ENABLED
+        and NOTIFICATION_TO_EMAIL
+        and NOTIFICATION_FROM_EMAIL
+        and SMTP_HOST
+    )
+
+
+def score_conversation_strength(
+    user_message: str,
+    answer: str,
+    history: list[dict[str, str]],
+) -> dict[str, Any]:
+    user_turns = sum(1 for item in history if item.get("role") == "user") + 1
+    transcript_text = " ".join(
+        item.get("content", "")
+        for item in [*history, {"role": "user", "content": user_message}, {"role": "assistant", "content": answer}]
+    )
+    text = transcript_text.lower()
+    score = 0
+    reasons: list[str] = []
+
+    contact_terms = (
+        "call",
+        "coffee chat",
+        "connect on linkedin",
+        "connect with",
+        "contact",
+        "email",
+        "interview",
+        "linkedin",
+        "reach out",
+        "schedule",
+        "set up a call",
+        "talk",
+    )
+    hiring_terms = (
+        "candidate",
+        "contract",
+        "hire",
+        "hiring",
+        "job",
+        "opening",
+        "opportunity",
+        "position",
+        "recruiter",
+        "recruiting",
+        "talent",
+    )
+    evaluation_terms = (
+        "analytics projects",
+        "automation",
+        "case study",
+        "dashboard",
+        "data science",
+        "fit",
+        "impact",
+        "lead scoring",
+        "portfolio",
+        "project",
+        "revenue growth",
+        "revops",
+        "salesforce",
+        "strong fit",
+    )
+
+    visitor_emails = extract_visitor_emails(transcript_text)
+    if visitor_emails:
+        score += 5
+        reasons.append("visitor shared an email address")
+
+    contact_matches = matched_terms(text, contact_terms)
+    if contact_matches:
+        score += 4
+        reasons.append(f"contact intent: {', '.join(contact_matches[:4])}")
+
+    hiring_matches = matched_terms(text, hiring_terms)
+    if hiring_matches:
+        score += 4
+        reasons.append(f"hiring intent: {', '.join(hiring_matches[:4])}")
+
+    evaluation_matches = matched_terms(text, evaluation_terms)
+    if evaluation_matches:
+        score += min(4, len(evaluation_matches))
+        reasons.append(f"role/project evaluation: {', '.join(evaluation_matches[:5])}")
+
+    if user_turns >= 4:
+        score += 3
+        reasons.append(f"{user_turns} visitor turns")
+    elif user_turns >= 2:
+        score += 1
+        reasons.append(f"{user_turns} visitor turns")
+
+    if len(transcript_text) >= 1600:
+        score += 2
+        reasons.append("substantial transcript length")
+
+    should_notify = score >= NOTIFICATION_MIN_SCORE and (
+        user_turns >= 2 or bool(contact_matches or hiring_matches or visitor_emails)
+    )
+    return {
+        "score": score,
+        "should_notify": should_notify,
+        "reasons": reasons,
+        "user_turns": user_turns,
+        "visitor_emails": visitor_emails,
+    }
+
+
+def reserve_notification_slot(client_key: str) -> tuple[bool, str]:
+    if not NOTIFICATION_ENABLED:
+        return False, "disabled"
+    if not notification_configured():
+        return False, "missing_smtp_config"
+
+    now = time.time()
+    with notification_lock:
+        last_sent_at = notification_state.get(client_key)
+        if (
+            last_sent_at is not None
+            and NOTIFICATION_COOLDOWN_SECONDS > 0
+            and now - last_sent_at < NOTIFICATION_COOLDOWN_SECONDS
+        ):
+            return False, "cooldown"
+
+        notification_state[client_key] = now
+        return True, "reserved"
+
+
+def format_transcript(history: list[dict[str, str]], user_message: str, answer: str) -> str:
+    transcript = [*history, {"role": "user", "content": user_message}, {"role": "assistant", "content": answer}]
+    lines: list[str] = []
+    for item in transcript[-10:]:
+        role = "Visitor" if item.get("role") == "user" else "Assistant"
+        content = clip_text(item.get("content", ""), 1600)
+        lines.append(f"{role}: {content}")
+    return "\n\n".join(lines)
+
+
+def build_notification_email(
+    client_key: str,
+    user_message: str,
+    answer: str,
+    history: list[dict[str, str]],
+    signal: dict[str, Any],
+    origin: str | None,
+    user_agent: str | None,
+) -> EmailMessage:
+    message = EmailMessage()
+    message["To"] = NOTIFICATION_TO_EMAIL
+    message["From"] = NOTIFICATION_FROM_EMAIL or ""
+    message["Date"] = formatdate(localtime=True)
+    message["Subject"] = f"Strong portfolio chat detected ({signal['score']}/{NOTIFICATION_MIN_SCORE})"
+
+    visitor_emails = signal.get("visitor_emails") or []
+    body = f"""A strong resume-chat conversation was detected.
+
+Score: {signal["score"]} / {NOTIFICATION_MIN_SCORE}
+Signals: {", ".join(signal.get("reasons") or ["No specific reasons recorded"])}
+Visitor email(s): {", ".join(visitor_emails) if visitor_emails else "None provided"}
+Client hash: {client_key}
+Origin: {origin or "unknown"}
+User agent: {clip_text(user_agent or "unknown", 260)}
+
+Latest visitor message:
+{clip_text(user_message, 1600)}
+
+Latest assistant response:
+{clip_text(answer, 2400)}
+
+Recent transcript:
+{format_transcript(history, user_message, answer)}
+"""
+    message.set_content(body)
+    return message
+
+
+def deliver_notification_email(message: EmailMessage, client_key: str, score: int) -> None:
+    try:
+        smtp_cls = smtplib.SMTP_SSL if SMTP_USE_SSL else smtplib.SMTP
+        with smtp_cls(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS) as server:
+            if SMTP_USE_TLS and not SMTP_USE_SSL:
+                server.starttls()
+            if SMTP_USERNAME and SMTP_PASSWORD:
+                server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.send_message(message)
+
+        log_chat_event("notification_sent", client=client_key, score=score)
+    except Exception as exc:
+        logger.exception("Failed to send chat notification email: %s", exc)
+        log_chat_event("notification_failed", client=client_key, score=score)
+
+
+def queue_strong_conversation_notification(
+    client_key: str,
+    user_message: str,
+    answer: str,
+    history: list[dict[str, str]],
+    origin: str | None,
+    user_agent: str | None,
+) -> None:
+    signal = score_conversation_strength(user_message, answer, history)
+    if not signal["should_notify"]:
+        return
+
+    allowed, reason = reserve_notification_slot(client_key)
+    if not allowed:
+        log_chat_event(
+            "notification_skipped",
+            client=client_key,
+            score=signal["score"],
+            reason=reason,
+        )
+        return
+
+    message = build_notification_email(
+        client_key=client_key,
+        user_message=user_message,
+        answer=answer,
+        history=history,
+        signal=signal,
+        origin=origin,
+        user_agent=user_agent,
+    )
+    thread = Thread(
+        target=deliver_notification_email,
+        args=(message, client_key, signal["score"]),
+        daemon=True,
+    )
+    thread.start()
+
+
 def normalize_history(raw_history: Any, current_message: str) -> list[dict[str, str]]:
     if not isinstance(raw_history, list):
         return []
@@ -226,6 +510,7 @@ Voice and behavior:
 - Do not invent employers, credentials, dates, technologies, outcomes, links, or contact details.
 - If the answer is not in the context, say that you do not have that detail and pivot to the closest relevant known experience.
 - For hiring or fit questions, connect evidence to business outcomes.
+- If a visitor expresses hiring or contact intent, ask for preferred contact information and say the conversation can be flagged for Braden. Do not promise an immediate response.
 - Keep most answers to 2-4 short paragraphs unless the user asks for detail.
 - When a question is broad or vague, choose the strongest documented angle and answer with specific projects or metrics rather than generic traits.
 - Prefer practical business language over academic jargon unless the user asks about statistical methods.
@@ -316,6 +601,8 @@ def chat():
 
     history = normalize_history(payload.get("history"), user_input)
     page_context = summarize_page_context(payload.get("page_context"))
+    origin = request.headers.get("Origin")
+    user_agent = clean_text(request.headers.get("User-Agent"), 260)
     started_at = time.perf_counter()
     log_chat_event(
         "request_started",
@@ -323,7 +610,7 @@ def chat():
         message_chars=len(user_input),
         history_used=len(history),
         page_context=bool(page_context),
-        origin=request.headers.get("Origin"),
+        origin=origin,
     )
 
     try:
@@ -334,6 +621,14 @@ def chat():
             max_tokens=700,
         )
         answer = response.choices[0].message.content or ""
+        queue_strong_conversation_notification(
+            client_key=client_key,
+            user_message=user_input,
+            answer=answer,
+            history=history,
+            origin=origin,
+            user_agent=user_agent,
+        )
         return jsonify(
             {
                 "response": answer,
@@ -385,6 +680,8 @@ def health():
             "model": MODEL,
             "context_version": profile_context.get("version", "unknown"),
             "resume_loaded": bool(resume_text and "unavailable" not in resume_text.lower()),
+            "notifications_enabled": NOTIFICATION_ENABLED,
+            "notifications_configured": notification_configured(),
         }
     ), 200
 

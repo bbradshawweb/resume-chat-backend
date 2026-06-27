@@ -14,3 +14,23 @@ services:
         value: "18"
       - key: RATE_LIMIT_WINDOW_SECONDS
         value: "60"
+      - key: NOTIFICATION_ENABLED
+        value: "false"
+      - key: NOTIFICATION_TO_EMAIL
+        value: bradshaw.braden@gmail.com
+      - key: NOTIFICATION_FROM_EMAIL
+        sync: false
+      - key: NOTIFICATION_MIN_SCORE
+        value: "7"
+      - key: NOTIFICATION_COOLDOWN_SECONDS
+        value: "21600"
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_USE_TLS
+        value: "true"
