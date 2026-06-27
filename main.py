@@ -8,7 +8,7 @@ from collections import defaultdict, deque
 from email.message import EmailMessage
 from email.utils import formatdate
 from hashlib import sha256
-from threading import Lock, Thread
+from threading import Lock
 from typing import Any
 
 import fitz  # PyMuPDF
@@ -33,6 +33,8 @@ MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-nano")
 MAX_MESSAGE_CHARS = int(os.getenv("MAX_MESSAGE_CHARS", "1400"))
 MAX_HISTORY_MESSAGES = int(os.getenv("MAX_HISTORY_MESSAGES", "8"))
 MAX_HISTORY_CHARS = int(os.getenv("MAX_HISTORY_CHARS", "1400"))
+MAX_CONTACT_FIELD_CHARS = int(os.getenv("MAX_CONTACT_FIELD_CHARS", "240"))
+MAX_CONTACT_SUMMARY_CHARS = int(os.getenv("MAX_CONTACT_SUMMARY_CHARS", "1800"))
 OPENAI_TIMEOUT_SECONDS = float(os.getenv("OPENAI_TIMEOUT_SECONDS", "25"))
 RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
 RATE_LIMIT_MAX_REQUESTS = int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "18"))
@@ -85,6 +87,7 @@ CORS(
     resources={
         r"/chat": {"origins": ALLOWED_ORIGINS},
         r"/chat/v2": {"origins": ALLOWED_ORIGINS},
+        r"/contact": {"origins": ALLOWED_ORIGINS},
         r"/context": {"origins": "*"},
         r"/health": {"origins": "*"},
         r"/": {"origins": "*"},
@@ -140,6 +143,13 @@ def clean_text(value: Any, max_chars: int) -> str:
     if not isinstance(value, str):
         return ""
     return " ".join(value.strip().split())[:max_chars]
+
+
+def clean_multiline_text(value: Any, max_chars: int) -> str:
+    if not isinstance(value, str):
+        return ""
+    lines = [" ".join(line.split()) for line in value.strip().splitlines()]
+    return "\n".join(line for line in lines if line)[:max_chars]
 
 
 def client_ip() -> str:
@@ -201,6 +211,10 @@ def extract_visitor_emails(transcript_text: str) -> list[str]:
     return sorted(set(EMAIL_PATTERN.findall(transcript_text)))[:5]
 
 
+def is_valid_email(value: str) -> bool:
+    return bool(EMAIL_PATTERN.fullmatch(value))
+
+
 def notification_configured() -> bool:
     return bool(
         NOTIFICATION_ENABLED
@@ -220,6 +234,11 @@ def score_conversation_strength(
         item.get("content", "")
         for item in [*history, {"role": "user", "content": user_message}, {"role": "assistant", "content": answer}]
     )
+    visitor_text = " ".join(
+        item.get("content", "")
+        for item in [*history, {"role": "user", "content": user_message}]
+        if item.get("role") == "user"
+    ).lower()
     text = transcript_text.lower()
     score = 0
     reasons: list[str] = []
@@ -273,12 +292,12 @@ def score_conversation_strength(
         score += 5
         reasons.append("visitor shared an email address")
 
-    contact_matches = matched_terms(text, contact_terms)
+    contact_matches = matched_terms(visitor_text, contact_terms)
     if contact_matches:
         score += 4
         reasons.append(f"contact intent: {', '.join(contact_matches[:4])}")
 
-    hiring_matches = matched_terms(text, hiring_terms)
+    hiring_matches = matched_terms(visitor_text, hiring_terms)
     if hiring_matches:
         score += 4
         reasons.append(f"hiring intent: {', '.join(hiring_matches[:4])}")
@@ -308,6 +327,57 @@ def score_conversation_strength(
         "reasons": reasons,
         "user_turns": user_turns,
         "visitor_emails": visitor_emails,
+        "contact_matches": contact_matches,
+        "hiring_matches": hiring_matches,
+        "evaluation_matches": evaluation_matches,
+    }
+
+
+def should_offer_contact_handoff(signal: dict[str, Any]) -> bool:
+    if signal.get("contact_matches") or signal.get("hiring_matches") or signal.get("visitor_emails"):
+        return True
+    if signal.get("evaluation_matches") and signal.get("user_turns", 0) >= 3 and signal.get("score", 0) >= 5:
+        return True
+    return bool(signal.get("should_notify"))
+
+
+def build_interest_summary(user_message: str, answer: str, history: list[dict[str, str]], signal: dict[str, Any]) -> str:
+    visitor_messages = [
+        item.get("content", "")
+        for item in [*history, {"role": "user", "content": user_message}]
+        if item.get("role") == "user" and item.get("content")
+    ]
+    latest_messages = visitor_messages[-3:]
+    summary_parts = []
+    if latest_messages:
+        summary_parts.append("Visitor interest:")
+        summary_parts.extend(f"- {clip_text(message, 260)}" for message in latest_messages)
+
+    reasons = signal.get("reasons") or []
+    if reasons:
+        summary_parts.append("")
+        summary_parts.append(f"Detected signals: {', '.join(reasons)}")
+
+    if answer:
+        summary_parts.append("")
+        summary_parts.append(f"Latest assistant context: {clip_text(answer, 420)}")
+
+    return "\n".join(summary_parts)[:MAX_CONTACT_SUMMARY_CHARS]
+
+
+def build_contact_handoff(user_message: str, answer: str, history: list[dict[str, str]]) -> dict[str, Any] | None:
+    signal = score_conversation_strength(user_message, answer, history)
+    if not should_offer_contact_handoff(signal):
+        return None
+
+    visitor_emails = signal.get("visitor_emails") or []
+    return {
+        "enabled": True,
+        "summary": build_interest_summary(user_message, answer, history, signal),
+        "email": visitor_emails[0] if visitor_emails else "",
+        "score": signal["score"],
+        "reasons": signal.get("reasons", []),
+        "cta": "Send summary to me",
     }
 
 
@@ -332,7 +402,11 @@ def reserve_notification_slot(client_key: str) -> tuple[bool, str]:
 
 
 def format_transcript(history: list[dict[str, str]], user_message: str, answer: str) -> str:
-    transcript = [*history, {"role": "user", "content": user_message}, {"role": "assistant", "content": answer}]
+    transcript = [*history]
+    if user_message:
+        transcript.append({"role": "user", "content": user_message})
+    if answer:
+        transcript.append({"role": "assistant", "content": answer})
     lines: list[str] = []
     for item in transcript[-10:]:
         role = "Visitor" if item.get("role") == "user" else "Assistant"
@@ -341,45 +415,45 @@ def format_transcript(history: list[dict[str, str]], user_message: str, answer: 
     return "\n\n".join(lines)
 
 
-def build_notification_email(
+def build_contact_submission_email(
     client_key: str,
-    user_message: str,
-    answer: str,
+    name: str,
+    email: str,
+    company: str,
+    summary: str,
     history: list[dict[str, str]],
-    signal: dict[str, Any],
     origin: str | None,
     user_agent: str | None,
 ) -> EmailMessage:
+    display_name = name or "Portfolio visitor"
+    subject_detail = company or email
     message = EmailMessage()
     message["To"] = NOTIFICATION_TO_EMAIL
     message["From"] = NOTIFICATION_FROM_EMAIL or ""
     message["Date"] = formatdate(localtime=True)
-    message["Subject"] = f"Strong portfolio chat detected ({signal['score']}/{NOTIFICATION_MIN_SCORE})"
+    message["Subject"] = f"Portfolio contact request from {display_name} ({subject_detail})"
+    message["Reply-To"] = email
 
-    visitor_emails = signal.get("visitor_emails") or []
-    body = f"""A strong resume-chat conversation was detected.
+    body = f"""A visitor approved sending their portfolio-chat interest to you.
 
-Score: {signal["score"]} / {NOTIFICATION_MIN_SCORE}
-Signals: {", ".join(signal.get("reasons") or ["No specific reasons recorded"])}
-Visitor email(s): {", ".join(visitor_emails) if visitor_emails else "None provided"}
+Name: {name or "Not provided"}
+Email: {email}
+Company / role: {company or "Not provided"}
 Client hash: {client_key}
 Origin: {origin or "unknown"}
 User agent: {clip_text(user_agent or "unknown", 260)}
 
-Latest visitor message:
-{clip_text(user_message, 1600)}
-
-Latest assistant response:
-{clip_text(answer, 2400)}
+Visitor-approved interest summary:
+{summary}
 
 Recent transcript:
-{format_transcript(history, user_message, answer)}
+{format_transcript(history, "", "")}
 """
     message.set_content(body)
     return message
 
 
-def deliver_notification_email(message: EmailMessage, client_key: str, score: int) -> None:
+def deliver_notification_email(message: EmailMessage, client_key: str, score: int) -> bool:
     try:
         smtp_cls = smtplib.SMTP_SSL if SMTP_USE_SSL else smtplib.SMTP
         with smtp_cls(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS) as server:
@@ -390,48 +464,11 @@ def deliver_notification_email(message: EmailMessage, client_key: str, score: in
             server.send_message(message)
 
         log_chat_event("notification_sent", client=client_key, score=score)
+        return True
     except Exception as exc:
         logger.exception("Failed to send chat notification email: %s", exc)
         log_chat_event("notification_failed", client=client_key, score=score)
-
-
-def queue_strong_conversation_notification(
-    client_key: str,
-    user_message: str,
-    answer: str,
-    history: list[dict[str, str]],
-    origin: str | None,
-    user_agent: str | None,
-) -> None:
-    signal = score_conversation_strength(user_message, answer, history)
-    if not signal["should_notify"]:
-        return
-
-    allowed, reason = reserve_notification_slot(client_key)
-    if not allowed:
-        log_chat_event(
-            "notification_skipped",
-            client=client_key,
-            score=signal["score"],
-            reason=reason,
-        )
-        return
-
-    message = build_notification_email(
-        client_key=client_key,
-        user_message=user_message,
-        answer=answer,
-        history=history,
-        signal=signal,
-        origin=origin,
-        user_agent=user_agent,
-    )
-    thread = Thread(
-        target=deliver_notification_email,
-        args=(message, client_key, signal["score"]),
-        daemon=True,
-    )
-    thread.start()
+        return False
 
 
 def normalize_history(raw_history: Any, current_message: str) -> list[dict[str, str]]:
@@ -510,7 +547,9 @@ Voice and behavior:
 - Do not invent employers, credentials, dates, technologies, outcomes, links, or contact details.
 - If the answer is not in the context, say that you do not have that detail and pivot to the closest relevant known experience.
 - For hiring or fit questions, connect evidence to business outcomes.
-- If a visitor expresses hiring or contact intent, ask for preferred contact information and say the conversation can be flagged for Braden. Do not promise an immediate response.
+- Be proactive: end most answers with one short, useful question that helps qualify what the visitor cares about next. Ask about the role, team, business problem, data stack, timeline, or whether they want a concrete project example.
+- Do not ask more than one question at a time, and do not ask a follow-up when the visitor clearly requested only a short factual answer.
+- If a visitor expresses hiring, recruiting, consulting, interview, or contact intent, answer the question and ask whether they would like to send me a short summary using the contact form below. Do not promise an immediate response.
 - Keep most answers to 2-4 short paragraphs unless the user asks for detail.
 - When a question is broad or vague, choose the strongest documented angle and answer with specific projects or metrics rather than generic traits.
 - Prefer practical business language over academic jargon unless the user asks about statistical methods.
@@ -570,6 +609,80 @@ def context():
     )
 
 
+@app.route("/contact", methods=["POST"])
+def contact():
+    payload = request.get_json(silent=True) or {}
+    client_key = client_hash()
+    allowed, retry_after = check_rate_limit(f"contact:{client_key}")
+    if not allowed:
+        response = jsonify(
+            {
+                "error": "Too many contact attempts",
+                "message": "Please wait a moment before sending another contact request.",
+                "retry_after": retry_after,
+            }
+        )
+        response.status_code = 429
+        response.headers["Retry-After"] = str(retry_after)
+        return response
+
+    if not notification_configured():
+        log_chat_event("contact_not_configured", client=client_key)
+        return jsonify(
+            {
+                "error": "Contact email is not configured",
+                "message": "I could not send the contact request yet. Please email Braden directly at bradshaw.braden@gmail.com.",
+            }
+        ), 503
+
+    name = clean_text(payload.get("name"), MAX_CONTACT_FIELD_CHARS)
+    email = clean_text(payload.get("email"), MAX_CONTACT_FIELD_CHARS).lower()
+    company = clean_text(payload.get("company"), MAX_CONTACT_FIELD_CHARS)
+    summary = clean_multiline_text(payload.get("summary"), MAX_CONTACT_SUMMARY_CHARS)
+    if not email or not is_valid_email(email):
+        return jsonify({"error": "A valid email address is required"}), 400
+    if not summary:
+        return jsonify({"error": "A short interest summary is required"}), 400
+
+    allowed_notification, reason = reserve_notification_slot(client_key)
+    if not allowed_notification:
+        status_code = 429 if reason == "cooldown" else 503
+        return jsonify(
+            {
+                "error": "Contact request not sent",
+                "message": "This contact request was not sent because email delivery is cooling down or unavailable.",
+                "reason": reason,
+            }
+        ), status_code
+
+    history = normalize_history(payload.get("history"), "")
+    origin = request.headers.get("Origin")
+    user_agent = clean_text(request.headers.get("User-Agent"), 260)
+    message = build_contact_submission_email(
+        client_key=client_key,
+        name=name,
+        email=email,
+        company=company,
+        summary=summary,
+        history=history,
+        origin=origin,
+        user_agent=user_agent,
+    )
+    sent = deliver_notification_email(message, client_key, NOTIFICATION_MIN_SCORE)
+    if not sent:
+        with notification_lock:
+            notification_state.pop(client_key, None)
+        return jsonify(
+            {
+                "error": "Contact request failed",
+                "message": "I could not send the contact request. Please email Braden directly at bradshaw.braden@gmail.com.",
+            }
+        ), 502
+
+    log_chat_event("contact_request_sent", client=client_key, has_name=bool(name), has_company=bool(company))
+    return jsonify({"ok": True, "message": "Sent. Thanks - I will see this conversation and your contact info."})
+
+
 @app.route("/chat", methods=["POST"])
 @app.route("/chat/v2", methods=["POST"])
 def chat():
@@ -621,21 +734,15 @@ def chat():
             max_tokens=700,
         )
         answer = response.choices[0].message.content or ""
-        queue_strong_conversation_notification(
-            client_key=client_key,
-            user_message=user_input,
-            answer=answer,
-            history=history,
-            origin=origin,
-            user_agent=user_agent,
-        )
+        contact_handoff = build_contact_handoff(user_input, answer, history)
         return jsonify(
             {
                 "response": answer,
                 "model": MODEL,
                 "history_used": len(history),
                 "context_version": profile_context.get("version", "unknown"),
-                "suggested_followups": pick_followups(user_input, answer),
+                "suggested_followups": [] if contact_handoff else pick_followups(user_input, answer),
+                "contact_handoff": contact_handoff,
             }
         )
 
