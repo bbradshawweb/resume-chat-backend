@@ -36,6 +36,7 @@ MAX_HISTORY_MESSAGES = int(os.getenv("MAX_HISTORY_MESSAGES", "8"))
 MAX_HISTORY_CHARS = int(os.getenv("MAX_HISTORY_CHARS", "1400"))
 MAX_CONTACT_FIELD_CHARS = int(os.getenv("MAX_CONTACT_FIELD_CHARS", "240"))
 MAX_CONTACT_SUMMARY_CHARS = int(os.getenv("MAX_CONTACT_SUMMARY_CHARS", "1800"))
+MAX_CONTACT_NOTE_CHARS = int(os.getenv("MAX_CONTACT_NOTE_CHARS", "1200"))
 OPENAI_TIMEOUT_SECONDS = float(os.getenv("OPENAI_TIMEOUT_SECONDS", "25"))
 RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
 RATE_LIMIT_MAX_REQUESTS = int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "18"))
@@ -400,7 +401,7 @@ def build_contact_handoff(user_message: str, answer: str, history: list[dict[str
         "email": visitor_emails[0] if visitor_emails else "",
         "score": signal["score"],
         "reasons": signal.get("reasons", []),
-        "cta": "Send summary to me",
+        "cta": "Send to Braden",
     }
 
 
@@ -408,7 +409,7 @@ def reserve_notification_slot(client_key: str) -> tuple[bool, str]:
     if not NOTIFICATION_ENABLED:
         return False, "disabled"
     if not notification_configured():
-        return False, "missing_smtp_config"
+        return False, "missing_email_config"
 
     now = time.time()
     with notification_lock:
@@ -444,6 +445,7 @@ def build_contact_submission_email(
     email: str,
     company: str,
     summary: str,
+    additional_context: str,
     history: list[dict[str, str]],
     origin: str | None,
     user_agent: str | None,
@@ -466,8 +468,11 @@ Client hash: {client_key}
 Origin: {origin or "unknown"}
 User agent: {clip_text(user_agent or "unknown", 260)}
 
-Visitor-approved interest summary:
-{summary}
+Generated conversation summary:
+{summary or "No generated summary was provided. See transcript below."}
+
+Visitor note / anything else to add:
+{additional_context or "Not provided"}
 
 Recent transcript:
 {format_transcript(history, "", "")}
@@ -636,7 +641,7 @@ Voice and behavior:
 - For hiring or fit questions, connect evidence to business outcomes.
 - Be proactive: end most answers with one short, useful question that helps qualify what the visitor cares about next. Ask about the role, team, business problem, data stack, timeline, or whether they want a concrete project example.
 - Do not ask more than one question at a time, and do not ask a follow-up when the visitor clearly requested only a short factual answer.
-- If a visitor expresses hiring, recruiting, consulting, interview, or contact intent, answer the question and ask whether they would like to send me a short summary using the contact form below. Do not promise an immediate response.
+- If a visitor expresses hiring, recruiting, consulting, interview, or contact intent, answer the question and ask whether they would like me to pass the conversation along to Braden. Do not ask them to review a summary, and do not promise an immediate response.
 - Keep most answers to 2-4 short paragraphs unless the user asks for detail.
 - Format answers for scanning: use short paragraphs, bullets for lists, and avoid dense blocks of text.
 - When a question is broad or vague, choose the strongest documented angle and answer with specific projects or metrics rather than generic traits.
@@ -719,7 +724,7 @@ def contact():
         return jsonify(
             {
                 "error": "Contact email is not configured",
-                "message": "Email sending is not fully configured yet. Your summary is still here, but please email me directly at bradshaw.braden@gmail.com for now.",
+                "message": "Email sending is not fully configured yet. Please email me directly at bradshaw.braden@gmail.com for now.",
             }
         ), 503
 
@@ -727,10 +732,9 @@ def contact():
     email = clean_text(payload.get("email"), MAX_CONTACT_FIELD_CHARS).lower()
     company = clean_text(payload.get("company"), MAX_CONTACT_FIELD_CHARS)
     summary = clean_multiline_text(payload.get("summary"), MAX_CONTACT_SUMMARY_CHARS)
+    additional_context = clean_multiline_text(payload.get("additional_context"), MAX_CONTACT_NOTE_CHARS)
     if not email or not is_valid_email(email):
         return jsonify({"error": "A valid email address is required"}), 400
-    if not summary:
-        return jsonify({"error": "A short interest summary is required"}), 400
 
     allowed_notification, reason = reserve_notification_slot(client_key)
     if not allowed_notification:
@@ -744,6 +748,9 @@ def contact():
         ), status_code
 
     history = normalize_history(payload.get("history"), "")
+    if not summary:
+        summary = clip_text(format_transcript(history, "", ""), MAX_CONTACT_SUMMARY_CHARS)
+
     origin = request.headers.get("Origin")
     user_agent = clean_text(request.headers.get("User-Agent"), 260)
     message = build_contact_submission_email(
@@ -752,6 +759,7 @@ def contact():
         email=email,
         company=company,
         summary=summary,
+        additional_context=additional_context,
         history=history,
         origin=origin,
         user_agent=user_agent,
@@ -763,13 +771,19 @@ def contact():
         return jsonify(
             {
                 "error": "Contact request failed",
-                "message": "I could not send this through the site yet. Your summary is still here, but please email me directly at bradshaw.braden@gmail.com for now.",
+                "message": "I could not send this through the site yet. Please email me directly at bradshaw.braden@gmail.com for now.",
                 "provider": notification_provider(),
             }
         ), 502
 
-    log_chat_event("contact_request_sent", client=client_key, has_name=bool(name), has_company=bool(company))
-    return jsonify({"ok": True, "message": "Sent. Thanks - I will see this conversation and your contact info."})
+    log_chat_event(
+        "contact_request_sent",
+        client=client_key,
+        has_name=bool(name),
+        has_company=bool(company),
+        has_note=bool(additional_context),
+    )
+    return jsonify({"ok": True, "message": "Sent. Thanks - I will see this conversation, your contact info, and your note."})
 
 
 @app.route("/chat", methods=["POST"])
