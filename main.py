@@ -159,6 +159,26 @@ def clean_multiline_text(value: Any, max_chars: int) -> str:
     return "\n".join(line for line in lines if line)[:max_chars]
 
 
+def clean_context_value(value: Any, max_chars: int = 700) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        return clean_text(value, max_chars)
+    if isinstance(value, list):
+        cleaned_items = [clean_context_value(item, 180) for item in value[:8]]
+        return " | ".join(item for item in cleaned_items if item)[:max_chars]
+    if isinstance(value, dict):
+        safe_items = {
+            str(key)[:40]: clean_context_value(item, 220)
+            for key, item in value.items()
+            if isinstance(key, str)
+        }
+        return json.dumps(safe_items, ensure_ascii=True)[:max_chars]
+    return ""
+
+
 def client_ip() -> str:
     forwarded_for = request.headers.get("X-Forwarded-For", "")
     if forwarded_for:
@@ -593,10 +613,11 @@ def summarize_page_context(raw_context: Any) -> str:
         return ""
 
     safe_context = {
-        str(key)[:40]: clean_text(value, 240)
+        str(key)[:60]: clean_context_value(value)
         for key, value in raw_context.items()
-        if isinstance(key, str) and isinstance(value, (str, int, float, bool))
+        if isinstance(key, str)
     }
+    safe_context = {key: value for key, value in safe_context.items() if value}
     if not safe_context:
         return ""
 
@@ -610,12 +631,14 @@ def pick_followups(user_message: str, answer: str) -> list[str]:
 
     combined = f"{user_message} {answer}".lower()
     group_name = "general"
-    if any(term in combined for term in ("revenue", "revops", "lead", "salesforce", "routing", "handoff", "workcenter")):
+    if any(term in combined for term in ("revenue", "revops", "lead", "salesforce", "routing", "handoff", "workcenter", "manager", "console", "probation", "throttle", "capacity", "rep")):
         group_name = "revenue_operations"
+    elif any(term in combined for term in ("marketing", "campaign", "source", "medium", "utm", "event", "lead quality", "cpa", "ad spend")):
+        group_name = "marketing_analytics"
+    elif any(term in combined for term in ("research", "behavior", "psychology", "survey", "longitudinal", "publication", "toxicity", "wikipedia", "biometric", "wearable", "loneliness", "social connection")):
+        group_name = "research"
     elif any(term in combined for term in ("model", "analytics", "attribution", "dashboard", "predictive", "statistics", "kpi")):
         group_name = "data_science"
-    elif any(term in combined for term in ("research", "behavior", "psychology", "survey", "longitudinal", "publication")):
-        group_name = "research"
 
     prompts = prompt_groups.get(group_name) or prompt_groups.get("general") or []
     return [prompt for prompt in prompts[:3] if isinstance(prompt, str)]
@@ -696,6 +719,7 @@ def context():
             "prompt_chips": profile_context.get("prompt_chips", []),
             "suggested_prompts": profile_context.get("suggested_prompts", []),
             "follow_up_prompts": follow_up_prompts.get("general", []),
+            "featured_projects": profile_context.get("projects", []),
             "preferred_framing": profile_context.get("response_guidance", {}).get("preferred_framing", []),
             "model": MODEL,
         }

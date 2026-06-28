@@ -1,9 +1,9 @@
 {
-  "version": "2026-06-26-proactive-contact-handoff",
+  "version": "2026-06-28-featured-projects",
   "positioning": "Data Scientist | Revenue Operations Intelligence",
-  "summary": "I build revenue operations intelligence systems that connect lead scoring, intelligent routing, rep performance monitoring, dashboards, automation, behavioral research, and predictive analytics.",
-  "chat_intro": "Ask my resume about my Revenue Operations platform work, lead scoring model, data science projects, automation, behavioral research, and analytics. I may ask a quick follow-up so I can point you to the strongest evidence.",
-  "initial_message": "Hi, ask me about my Revenue Operations Intelligence Platform, lead scoring and routing systems, data science projects, tools, research background, and resume highlights. What are you trying to evaluate first?",
+  "summary": "I build revenue operations intelligence systems that connect Salesforce tooling, lead scoring, intelligent routing, rep performance monitoring, manager consoles, marketing analytics, automation, behavioral research, and predictive models.",
+  "chat_intro": "Ask my resume about my Salesforce Workcenter, manager console, lead scoring and routing model, marketing analytics, behavioral research, and revenue operations systems. I may ask one quick follow-up so I can point you to the strongest evidence.",
+  "initial_message": "Hi, ask me about my Salesforce Workcenter, manager console, lead routing model, marketing analytics, research background, or resume highlights. What are you trying to evaluate first?",
   "chat_config": {
     "subtitle": "Interactive resume chat",
     "placeholder": "Ask my resume about RevOps systems, analytics, automation, or research",
@@ -45,12 +45,13 @@
     ],
     "highlights": [
       "Owns product and marketing analytics across customer behavior, web engagement, and internal operations.",
-      "Builds revenue operations systems spanning Salesforce administration, internal services, dashboards, integrations, routing logic, and performance monitoring.",
-      "Built a functioning lead probability and scoring model that informs intelligent lead routing.",
-      "Increased revenue lead efficiency by 40% with standardized calendars, overbooking strategy, smart lead routing, and behavior-informed handoffs.",
-      "Overhauled a team workcenter with a data and revenue-focused model, improving team efficiency by 20%.",
-      "Created rep efficiency, performance monitoring, and probation/coaching systems to help managers see risk and opportunity.",
-      "Built personalized AI training and coaching support with comparative performance insights.",
+      "Builds revenue operations systems spanning Salesforce administration, internal services, dashboards, integrations, routing logic, manager consoles, and performance monitoring.",
+      "Built a functioning lead probability and scoring model that predicts a lead's odds of closing within 2% and informs intelligent routing.",
+      "Built a Salesforce Workcenter and rep enablement system that doubled overall rep efficiency and cut missed customer communication in half.",
+      "Increased daily sale opportunity capacity by 40% and revenue by 20% through smarter routing, standardized calendars, overbooking strategy, and behavior-informed handoffs.",
+      "Created manager console tooling for live floor activity, historical action review, KPI ranking, rep performance monitoring, and probation/coaching workflows.",
+      "Built personalized AI training and coaching support with comparative performance insights, call review, notes review, and suggested actions.",
+      "Connected marketing analytics, UTMs, and lead quality monitoring to the lead probability model, including an event optimization that measured 14% more effective than the existing model.",
       "Built predictive models including logistic regression and multivariate analysis to quantify client success probabilities.",
       "Designed and maintained dashboards in Sigma, Salesforce, and Google Analytics.",
       "Developed multi-touch attribution using web traffic, marketing source, CRM activity, and transaction data.",
@@ -86,69 +87,107 @@
   ],
   "projects": [
     {
-      "name": "Revenue Operations Intelligence Platform",
-      "themes": ["Revenue Operations", "Salesforce administration", "Lead scoring", "Intelligent routing", "Rep efficiency monitoring", "Performance monitoring", "Probation systems", "Integrations", "Operational analytics"],
+      "name": "Salesforce Workcenter + Rep Enablement System",
+      "themes": ["Revenue Operations", "Salesforce", "Lead management", "Rep enablement", "AI call review", "Training insights", "Leaderboards", "Smart meeting coverage"],
       "outcomes": [
-        "Functioning lead probability and scoring model informs intelligent routing",
-        "40% increase in revenue lead efficiency",
-        "20% increase in team efficiency",
-        "Rep efficiency, performance monitoring, and probation/coaching systems for operational visibility"
+        "Doubled overall rep efficiency after adoption",
+        "Cut missed customer communication in half",
+        "Created a continuous personalized training loop from stats, calls, notes, and floor benchmarks"
       ],
       "details": [
-        "Built a lead probability and scoring model used to guide lead routing decisions.",
-        "Standardized calendars, overbooking strategy, routing rules, and handoff logic.",
-        "Created dashboards, services, integrations, and admin workflows for revenue operations.",
-        "Built comparative insights, performance monitoring, rep efficiency tracking, and probation/coaching systems into team operations."
+        "Built a custom Salesforce workcenter for managing and closing leads.",
+        "Included action history, personal records and stats, daily schedule overviews, suggested actions, scheduled event aggregation, training meetings, and live-updating leaderboards.",
+        "Training insights compare each rep's behavior and stats with floor benchmarks and top performers, then suggest actions to close performance gaps.",
+        "AI call and notes review summarize what reps did well, what they could improve, and day-by-day coaching feedback.",
+        "Smart meeting coverage lets reps release long-running calls for other reps to claim, improving coverage and efficiency."
       ]
     },
     {
-      "name": "Sales funnel attribution model",
-      "themes": ["Attribution", "CRM", "Web analytics", "Predictive modeling"],
+      "name": "Manager Console + Performance Operations System",
+      "themes": ["Manager tooling", "Performance operations", "Live floor activity", "Probation workflows", "Historical action review", "KPI leaderboard", "Rep efficiency monitoring"],
       "outcomes": [
-        "Built more than 15 models to estimate and predict conversion rates",
-        "Identified more than 10 targeting opportunities for leadership"
+        "Gives managers and remote stakeholders a consolidated live view of floor activity and team efficiency",
+        "Supports probation, PIP, coaching, and tailored training decisions",
+        "Helps distinguish effort problems from skill gaps by reviewing historical activity and selected KPIs"
       ],
       "details": [
-        "Integrated Google Analytics, Salesforce, and transaction data.",
-        "Used logistic regression to estimate conversion probabilities.",
-        "Delivered weekly Sigma dashboards for marketing leadership."
+        "Built a console that shows live rep activity, call status, schedules, Salesforce activity, Twilio activity, current and next meetings, and productivity signals.",
+        "Created a probations tab so managers can limit a rep's opportunities when flagged by performance systems.",
+        "Created historical activity views for selected groups or individuals over a chosen period.",
+        "Built an in-depth leaderboard and stat picker to rank reps by many KPIs for coaching, probation, and PIP decisions."
       ]
     },
     {
-      "name": "Customer lifecycle automation",
-      "themes": ["Lifecycle marketing", "Salesforce Flows", "Webhooks", "Customer outreach"],
+      "name": "Predictive Lead Routing + Smart Lead Throttle",
+      "themes": ["Predictive modeling", "Lead scoring", "Intelligent routing", "Smart lead throttle", "Capacity planning", "Calendar systems", "Sales logistics"],
+      "outcomes": [
+        "Predicted a lead's odds of closing within 2%",
+        "Increased daily sale opportunity capacity by 40%",
+        "Increased revenue by 20% through smarter routing"
+      ],
+      "details": [
+        "Created a lead probability and scoring model used to inform intelligent lead routing.",
+        "Built a smart lead throttle that releases leads based on rep capacity and predicted booking rates.",
+        "Restructured calendar logistics for performance-based meeting allocation and prioritization.",
+        "Standardized shifts and enabled overbookings so the routing system could better match demand with available capacity."
+      ]
+    },
+    {
+      "name": "Marketing Analytics + Lead Quality Intelligence",
+      "themes": ["Marketing analytics", "Lead quality", "Campaign analysis", "UTM strategy", "Predictive close likelihood", "Pricing analysis", "CPA optimization", "Sigma dashboards", "Salesforce dashboards"],
+      "outcomes": [
+        "Built monitoring of quality over time by campaign, source, and medium",
+        "Connected inbound traffic and leads to the predictive lead model for quality and revenue evaluation",
+        "Measured a new optimized event as 14% more effective than the existing model, supporting a strict 14% revenue lift with universal adoption"
+      ],
+      "details": [
+        "Created Sigma and Salesforce dashboards for marketing trends, pacing to targets, campaign performance, and lead quality.",
+        "Ran regular analyses of which campaigns, sources, and mediums drove the best quality traffic and leads.",
+        "Set up UTMs for new event testing and connected inbound leads to model-based quality scoring.",
+        "Ran pricing and placement analyses to minimize CPA and maximize lead quality.",
+        "Informed key decisions about campaign priorities, product direction, sales direction, budget allocation, and routing."
+      ]
+    },
+    {
+      "name": "Customer Lifecycle Automation + Integrations",
+      "themes": ["Salesforce Flows", "Webhooks", "Lifecycle automation", "Two-way integrations", "Outlook", "Intercom", "Shopify", "Twilio", "Customer outreach"],
       "outcomes": [
         "30% lift in customer engagement and retention",
-        "20% lift in full-funnel conversion rate"
+        "20% lift in full-funnel conversion rate",
+        "Cleaner B2C systems for employees and customers"
       ],
       "details": [
-        "Designed full multi-medium outreach inside Salesforce.",
-        "Mapped cadence flow for leadership review.",
-        "Automated SMS, email, and internal workflow touchpoints."
+        "Designed full multi-medium outreach inside Salesforce with SMS, email, drip, and internal workflow automation.",
+        "Built two-way integrations across Outlook and Salesforce, Intercom and Salesforce, Intercom and Shopify, and Twilio and Salesforce.",
+        "Created consolidated monitoring and smoother employee/customer workflows.",
+        "Automated smart review gathering to improve company reputation signals."
       ]
     },
     {
-      "name": "Structural equation model for user engagement and retention",
-      "themes": ["SEM", "Retention", "Behavioral analytics", "Latent constructs"],
+      "name": "Academic and Behavioral Research",
+      "themes": ["Behavioral research", "Biometric data", "Wearable devices", "Loneliness", "Social connection", "Survey scales", "Language toxicity", "Network analysis", "NLP"],
+      "outcomes": [
+        "Analyzed 4,563 talk interactions and 627 unique editors in pilot thesis data",
+        "Found a fully reciprocal editor had 98% lower odds of a toxic utterance in the model",
+        "Uses behavioral science to structure measurement, incentives, and communication"
+      ],
+      "details": [
+        "Studied shock events, network ties, and discourse toxicity on Wikipedia talk pages using page-view validation, talk-page interaction data, reciprocal network proxies, and NLP toxicity scoring.",
+        "Research interests include biometric data, wearable devices, loneliness, social connection, social scales, and language toxicity.",
+        "Academic training informs how Braden defines behavior, instruments processes, interprets evidence, and communicates limitations."
+      ]
+    },
+    {
+      "name": "Structural Equation Modeling and Decision Analytics",
+      "themes": ["SEM", "Retention", "Behavioral analytics", "Latent constructs", "Ad-hoc analysis", "Statistical reporting"],
       "outcomes": [
         "Connected behavioral constructs to tangible user outcomes",
-        "Identified a product-expectation gap for onboarding and retention strategy"
+        "Informed product, retention, audience targeting, and operating priorities"
       ],
       "details": [
-        "Modeled latent constructs for excitement, engagement, and issues.",
-        "Created clusters based on engagement and retention propensity."
-      ]
-    },
-    {
-      "name": "Quarterly insight reporting",
-      "themes": ["Statistical reporting", "Executive dashboards", "KPI analysis"],
-      "outcomes": [
-        "Translated broad operational questions into evidence-based recommendations"
-      ],
-      "details": [
-        "Identified and visualized KPIs.",
-        "Analyzed conversion-rate shifts between quarters.",
-        "Delivered trend interpretation and action items."
+        "Modeled latent constructs for excitement, engagement, and issues, then connected those constructs to retention outcomes.",
+        "Ran analyses on optimal text cadence, lifecycle email efficiency, contractor cost/benefit, survey results, customer segments, product split, and shareholder KPI reporting.",
+        "Translated noisy, multi-source questions into visual evidence and action-ready recommendations."
       ]
     }
   ],
@@ -161,7 +200,12 @@
       "Factor analysis",
       "Multi-touch attribution",
       "Survey design",
-      "Structural equation modeling"
+      "Structural equation modeling",
+      "Lead quality analysis",
+      "Pricing analysis",
+      "UTM and event analysis",
+      "NLP toxicity scoring",
+      "Network analysis"
     ],
     "revenue_operations": [
       "Lead scoring",
@@ -176,6 +220,13 @@
       "Webhooks",
       "Lifecycle automation",
       "Sales operations dashboards",
+      "Manager console tooling",
+      "Live floor activity monitoring",
+      "Historical action review",
+      "KPI leaderboards",
+      "Smart lead throttling",
+      "Performance-based calendar allocation",
+      "Smart meeting coverage",
       "Customer journey mapping",
       "Workcenter optimization",
       "Internal services and integrations"
@@ -191,7 +242,12 @@
       "Sigma",
       "Salesforce CRM",
       "Google Analytics",
-      "Google Data Studio"
+      "Google Data Studio",
+      "Python",
+      "Twilio",
+      "Intercom",
+      "Shopify",
+      "Outlook"
     ],
     "business_and_research": [
       "Data-driven strategy",
@@ -199,12 +255,19 @@
       "Cross-functional collaboration",
       "Behavioral research",
       "Longitudinal studies",
-      "Statistical communication"
+      "Statistical communication",
+      "Biometric data",
+      "Wearable devices",
+      "Social connection research",
+      "Language toxicity analysis",
+      "Behavioral performance design"
     ]
   },
   "response_guidance": {
     "preferred_framing": [
-      "Revenue Operations Intelligence Platform",
+      "Salesforce Workcenter + Rep Enablement System",
+      "Manager Console + Performance Operations System",
+      "Marketing Analytics + Lead Quality Intelligence",
       "Predictive lead scoring connected to routing and rep performance systems",
       "Revenue Operations powered by data science",
       "Analytics that improve operating systems, not just dashboards",
@@ -214,7 +277,7 @@
     "avoid": [
       "Do not imply the Master of Statistics is completed.",
       "Do not invent company names beyond those in the resume.",
-      "Do not overstate exact metrics beyond the documented 40%, 20%, 30%, 20%, 15+, and 10+ figures.",
+      "Do not overstate exact metrics beyond the documented 2x rep efficiency, 50% missed-communication reduction, within-2% lead close prediction, 40% capacity increase, 20% revenue increase, 14% event lift, 30% engagement/retention lift, and 20% full-funnel conversion lift.",
       "Do not provide private or sensitive details beyond the public resume and portfolio context.",
       "Do not ask multiple follow-up questions at once."
     ]
@@ -227,28 +290,30 @@
       "Ask one short follow-up question that helps clarify the visitor's role, business problem, timeline, or desired project evidence."
     ],
     "high_priority_facts": [
-      "Built a functioning lead probability and scoring model that informs intelligent lead routing.",
-      "40% increase in revenue lead efficiency from routing, handoff, calendar, and overbooking improvements.",
-      "20% team efficiency lift from redesigned revenue operations workflows and monitoring.",
-      "Built rep efficiency monitoring, performance monitoring, and probation/coaching systems.",
+      "Built a Salesforce Workcenter and rep enablement system that doubled overall rep efficiency and cut missed customer communication in half.",
+      "Built a functioning lead probability model that predicted a lead's odds of closing within 2% and informed intelligent routing.",
+      "Increased daily sale opportunity capacity by 40% and revenue by 20% through smarter routing, standardized calendars, overbooking strategy, and behavior-informed handoffs.",
+      "Built manager console tooling for live floor activity, historical action review, KPI ranking, probation workflows, and coaching/PIP decisions.",
+      "Built marketing analytics and lead quality monitoring by campaign, source, and medium, including an event optimization that measured 14% more effective than the existing model.",
+      "Built personalized AI training and coaching support with comparative performance insights, call review, notes review, and suggested actions.",
       "30% customer engagement and retention lift from lifecycle automation.",
       "20% full-funnel conversion rate lift from improved outreach and lifecycle logic.",
-      "More than 15 attribution and predictive models for conversion targeting.",
-      "BigQuery, Snowflake, SQL, Salesforce, Sigma, Google Analytics, R, Stata, JMP, and Excel are core tools.",
+      "Built two-way integrations across Outlook/Salesforce, Intercom/Salesforce, Intercom/Shopify, and Twilio/Salesforce.",
+      "BigQuery, Snowflake, SQL, Salesforce, Sigma, Google Analytics, R, Python, Stata, JMP, and Excel are core tools.",
       "Master of Statistics is ongoing, not completed.",
-      "Behavioral science background informs survey design, user analytics, retention modeling, and customer behavior interpretation."
+      "Behavioral science background informs survey design, user analytics, retention modeling, customer behavior interpretation, incentive design, and research communication."
     ],
     "role_fit_angles": {
-      "revenue_operations": "Emphasize the Revenue Operations Intelligence Platform: Salesforce administration, lead probability scoring, intelligent routing, rep efficiency monitoring, performance monitoring, probation/coaching systems, dashboards, integrations, and revenue efficiency.",
-      "data_science": "Emphasize predictive modeling, attribution, SEM, regression, experimental thinking, and business-facing recommendations.",
+      "revenue_operations": "Emphasize the Salesforce Workcenter, manager console, lead probability model, intelligent routing, smart lead throttle, rep efficiency monitoring, probation/coaching systems, dashboards, integrations, and revenue impact.",
+      "data_science": "Emphasize predictive modeling, lead close prediction within 2%, marketing quality analysis, SEM, regression, NLP toxicity scoring, and business-facing recommendations.",
       "product_analytics": "Emphasize user behavior, retention, longitudinal measurement, onboarding gaps, and cross-functional product decisions.",
-      "marketing_analytics": "Emphasize funnel analysis, attribution, source quality, conversion prediction, and CPA/targeting improvements.",
-      "analytics_engineering": "Emphasize joining CRM, web, and transaction data into analysis-ready systems and dashboards."
+      "marketing_analytics": "Emphasize lead quality monitoring, campaign/source/medium analysis, UTMs, event optimization, pricing analysis, CPA/targeting improvements, and predictive close likelihood.",
+      "analytics_engineering": "Emphasize joining CRM, web, transaction, marketing, activity, and operational data into analysis-ready systems, dashboards, and internal tools."
     },
     "sample_question_guidance": [
       {
         "question": "Why are you a good fit for a RevOps analytics role?",
-        "answer_strategy": "Lead with the Revenue Operations Intelligence Platform, the lead probability scoring model, and the 40% lead-efficiency and 20% team-efficiency results, then mention Salesforce, routing, monitoring, dashboards, and behavioral data."
+        "answer_strategy": "Lead with the Salesforce Workcenter, manager console, lead probability scoring model, and the 2x efficiency, 50% missed-communication reduction, 40% capacity increase, and 20% revenue results."
       },
       {
         "question": "What makes you different from a typical analyst?",
@@ -265,33 +330,33 @@
     ]
   },
   "suggested_prompts": [
-    "What is your Revenue Operations Intelligence Platform?",
-    "How does your lead scoring model inform routing?",
-    "What do you do for revenue growth?",
-    "What analytics projects have you led?",
-    "How do you combine behavioral science and analytics?",
+    "What did you build in your Salesforce Workcenter?",
+    "How does your lead scoring model improve routing?",
+    "How did your manager console improve team visibility?",
+    "What marketing analytics work have you led?",
+    "How does your research background shape your analytics?",
     "Why are you a strong fit for a RevOps analytics role?"
   ],
   "prompt_chips": [
     {
-      "label": "RevOps platform",
-      "prompt": "What is your Revenue Operations Intelligence Platform?"
+      "label": "Workcenter",
+      "prompt": "What did you build in your Salesforce Workcenter?"
     },
     {
       "label": "Lead scoring",
-      "prompt": "How does your lead scoring model inform routing?"
+      "prompt": "How does your lead scoring model improve routing?"
     },
     {
-      "label": "Revenue growth",
-      "prompt": "What do you do for revenue growth?"
+      "label": "Manager console",
+      "prompt": "How did your manager console improve team visibility?"
     },
     {
-      "label": "Analytics projects",
-      "prompt": "What analytics projects have you led?"
+      "label": "Marketing analytics",
+      "prompt": "What marketing analytics work have you led?"
     },
     {
-      "label": "Behavioral science",
-      "prompt": "How do you combine behavioral science and analytics?"
+      "label": "Research",
+      "prompt": "How does your research background shape your analytics?"
     },
     {
       "label": "Tools and stack",
@@ -305,19 +370,24 @@
   "follow_up_prompts": {
     "general": [
       "Can you give me a concrete example?",
-      "Which of your projects best shows that skill?",
+      "Which featured project best shows that skill?",
       "How would that translate to a business role?"
     ],
     "revenue_operations": [
-      "How does your lead scoring model inform routing?",
-      "What performance monitoring systems have you built?",
-      "How do your probation and coaching systems use the data?",
-      "Which RevOps tools and systems do you use?"
+      "What did you build in the Salesforce Workcenter?",
+      "How does your lead scoring model improve routing?",
+      "How did your manager console support coaching and probations?",
+      "How did the smart lead throttle improve capacity?"
     ],
     "data_science": [
       "What data sources went into that analysis?",
       "How did you use those models for business decisions?",
-      "Which of your dashboards or projects best demonstrates this?"
+      "Which project best demonstrates your predictive modeling?"
+    ],
+    "marketing_analytics": [
+      "How did you measure lead quality by campaign?",
+      "How did the 14% event optimization work?",
+      "How did marketing analytics connect to revenue?"
     ],
     "research": [
       "How does behavioral science shape your analytics work?",
