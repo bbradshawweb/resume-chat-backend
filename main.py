@@ -15,7 +15,7 @@ import fitz  # PyMuPDF
 import httpx
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from openai import APIConnectionError, APITimeoutError, RateLimitError
+from openai import APIConnectionError, APIStatusError, APITimeoutError
 from openai import OpenAI
 
 
@@ -140,7 +140,7 @@ profile_context = load_profile_context()
 
 
 def get_openai_client() -> OpenAI | None:
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not api_key:
         return None
     return OpenAI(api_key=api_key, timeout=OPENAI_TIMEOUT_SECONDS)
@@ -215,6 +215,66 @@ def log_chat_event(event: str, **metadata: Any) -> None:
         if isinstance(value, (str, int, float, bool, type(None)))
     }
     logger.info("chat_event=%s %s", event, json.dumps(safe_metadata, sort_keys=True))
+
+
+def assistant_error_response(code: str, message: str, status: int, retry_after: int | None = None):
+    payload = {"error": "Assistant unavailable", "code": code, "message": message}
+    if retry_after is not None:
+        payload["retry_after"] = retry_after
+    response = jsonify(payload)
+    response.status_code = status
+    if retry_after is not None:
+        response.headers["Retry-After"] = str(retry_after)
+    return response
+
+
+def openai_error_response(exc: APIStatusError, client_key: str):
+    # Log provider identifiers, never the raw error body, which can contain key fragments.
+    body = exc.body if isinstance(exc.body, dict) else {}
+    details = body.get("error", body)
+    if not isinstance(details, dict):
+        details = {}
+    provider_code = details.get("code") or getattr(exc, "code", None)
+    provider_type = details.get("type") or getattr(exc, "type", None)
+    quota_codes = {
+        "insufficient_quota", "billing_hard_limit_reached", "billing_not_active",
+        "organization_spend_limit_exceeded", "project_spend_limit_exceeded",
+        "organization_usage_limit_exceeded",
+    }
+    message = "My resume assistant is temporarily unavailable. Please email me at bradshaw.braden@gmail.com."
+    status = 503
+    retry_after = None
+    if exc.status_code in {401, 403}:
+        code = "upstream_access_denied"
+        action = "Check OPENAI_API_KEY, project permissions, and account access in OpenAI."
+    elif exc.status_code == 404:
+        code = "upstream_model_unavailable"
+        action = "Check OPENAI_MODEL and model access for the configured API key."
+    elif exc.status_code == 429 and (provider_code in quota_codes or provider_type == "insufficient_quota"):
+        code = "upstream_quota_exhausted"
+        action = "Check OpenAI API credits, billing, and project/organization limits."
+    elif exc.status_code == 429:
+        code = "upstream_rate_limited"
+        action = "Wait before retrying; check OpenAI rate limits if this persists."
+        status = 429
+        retry_after = 20
+        message = "The assistant is temporarily busy. Please try again in a moment."
+    elif exc.status_code in {400, 422}:
+        code = "upstream_request_rejected"
+        action = "Check the logged error code/parameter against the selected model's API requirements."
+        status = 502
+    else:
+        code = "upstream_service_error"
+        action = "Check the OpenAI service status and provider request ID."
+        status = 502
+        message = "My resume assistant could not complete that response. Please try again in a moment."
+    log_chat_event(
+        code, client=client_key, model=MODEL, upstream_status=exc.status_code,
+        upstream_code=provider_code, upstream_type=provider_type,
+        parameter=details.get("param"), provider_request_id=getattr(exc, "request_id", None),
+        action=action,
+    )
+    return assistant_error_response(code, message, status, retry_after)
 
 
 EMAIL_PATTERN = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
@@ -814,6 +874,8 @@ def contact():
 @app.route("/chat/v2", methods=["POST"])
 def chat():
     payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Request body must be a JSON object"}), 400
     user_input = clean_text(payload.get("message"), MAX_MESSAGE_CHARS)
     if not user_input:
         return jsonify({"error": "No input provided"}), 400
@@ -833,12 +895,6 @@ def chat():
         response.headers["Retry-After"] = str(retry_after)
         return response
 
-    client = get_openai_client()
-    if client is None:
-        logger.error("OPENAI_API_KEY is not configured.")
-        log_chat_event("missing_api_key", client=client_key)
-        return jsonify({"error": "Chat is not configured"}), 503
-
     history = normalize_history(payload.get("history"), user_input)
     page_context = summarize_page_context(payload.get("page_context"))
     origin = request.headers.get("Origin")
@@ -854,13 +910,28 @@ def chat():
     )
 
     try:
+        client = get_openai_client()
+        if client is None:
+            log_chat_event("missing_api_key", client=client_key, action="Set OPENAI_API_KEY in Render.")
+            return assistant_error_response(
+                "missing_api_key",
+                "My resume assistant is temporarily unavailable. Please email me at bradshaw.braden@gmail.com.",
+                503,
+            )
         response = client.chat.completions.create(
             model=MODEL,
             messages=build_messages(user_input, history, page_context),
             temperature=0.35,
             max_tokens=700,
         )
-        answer = response.choices[0].message.content or ""
+        answer = response.choices[0].message.content if response.choices else None
+        if not isinstance(answer, str) or not answer.strip():
+            log_chat_event("upstream_empty_response", client=client_key, model=MODEL)
+            return assistant_error_response(
+                "upstream_empty_response",
+                "My resume assistant returned an empty response. Please try again in a moment.",
+                502,
+            )
         contact_handoff = build_contact_handoff(user_input, answer, history)
         return jsonify(
             {
@@ -873,34 +944,25 @@ def chat():
             }
         )
 
-    except RateLimitError as exc:
-        logger.warning("OpenAI rate limit during chat completion: %s", exc)
-        log_chat_event("upstream_rate_limited", client=client_key)
-        response = jsonify(
-            {
-                "error": "Assistant is busy",
-                "message": "The assistant is temporarily busy. Please try again in a moment.",
-                "retry_after": 20,
-            }
-        )
-        response.status_code = 429
-        response.headers["Retry-After"] = "20"
-        return response
+    except APIStatusError as exc:
+        return openai_error_response(exc, client_key)
 
     except (APITimeoutError, APIConnectionError) as exc:
-        logger.warning("OpenAI connection issue during chat completion: %s", exc)
-        log_chat_event("upstream_unavailable", client=client_key)
-        return jsonify(
-            {
-                "error": "Assistant unavailable",
-                "message": "The assistant is waking up or temporarily unreachable. Please try again in a moment.",
-            }
-        ), 503
+        log_chat_event("upstream_unavailable", client=client_key, error_type=type(exc).__name__)
+        return assistant_error_response(
+            "upstream_unavailable",
+            "My resume assistant is temporarily unreachable. Please try again in a moment.",
+            503,
+        )
 
     except Exception as exc:
         logger.exception("Error during OpenAI chat completion: %s", exc)
         log_chat_event("server_error", client=client_key)
-        return jsonify({"error": "Server error"}), 500
+        return assistant_error_response(
+            "server_error",
+            "My resume assistant could not complete that response. Please try again or email me at bradshaw.braden@gmail.com.",
+            500,
+        )
     finally:
         elapsed_ms = round((time.perf_counter() - started_at) * 1000)
         log_chat_event("request_finished", client=client_key, elapsed_ms=elapsed_ms)
@@ -914,6 +976,7 @@ def health():
             "model": MODEL,
             "context_version": profile_context.get("version", "unknown"),
             "resume_loaded": bool(resume_text and "unavailable" not in resume_text.lower()),
+            "openai_configured": bool(os.getenv("OPENAI_API_KEY", "").strip()),
             "notifications_enabled": NOTIFICATION_ENABLED,
             "notifications_configured": notification_configured(),
             "notification_provider": notification_provider(),
