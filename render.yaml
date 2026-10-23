@@ -9,7 +9,7 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_MODEL
-        value: gpt-4.1-nano
+        value: gpt-5.6-luna
       - key: RATE_LIMIT_MAX_REQUESTS
         value: "18"
       - key: RATE_LIMIT_WINDOW_SECONDS

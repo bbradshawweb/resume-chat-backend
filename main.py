@@ -30,7 +30,7 @@ def env_bool(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-nano")
+MODEL = os.getenv("OPENAI_MODEL", "gpt-5.6-luna")
 MAX_MESSAGE_CHARS = int(os.getenv("MAX_MESSAGE_CHARS", "1400"))
 MAX_HISTORY_MESSAGES = int(os.getenv("MAX_HISTORY_MESSAGES", "8"))
 MAX_HISTORY_CHARS = int(os.getenv("MAX_HISTORY_CHARS", "1400"))
@@ -918,11 +918,16 @@ def chat():
                 "My resume assistant is temporarily unavailable. Please email me at bradshaw.braden@gmail.com.",
                 503,
             )
+        completion_options: dict[str, Any] = {"max_completion_tokens": 700}
+        if MODEL == "gpt-5.6-luna":
+            # Resume lookup needs a quick answer without a separate reasoning budget.
+            completion_options["reasoning_effort"] = "none"
+        else:
+            completion_options["temperature"] = 0.35
         response = client.chat.completions.create(
             model=MODEL,
             messages=build_messages(user_input, history, page_context),
-            temperature=0.35,
-            max_tokens=700,
+            **completion_options,
         )
         answer = response.choices[0].message.content if response.choices else None
         if not isinstance(answer, str) or not answer.strip():

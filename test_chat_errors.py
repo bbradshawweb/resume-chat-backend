@@ -143,6 +143,30 @@ class ChatErrorTests(unittest.TestCase):
         self.assertEqual(response.json["suggested_followups"], [])
         send_email.assert_not_called()
 
+    def test_luna_request_uses_compatible_parameters_without_reasoning_overhead(self):
+        answer = "I build revenue operations systems."
+        self.create.return_value = SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=answer))])
+        with patch.object(backend, "MODEL", "gpt-5.6-luna"):
+            response = self.post_chat()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["model"], "gpt-5.6-luna")
+        parameters = self.create.call_args.kwargs
+        self.assertEqual(parameters["max_completion_tokens"], 700)
+        self.assertEqual(parameters["reasoning_effort"], "none")
+        self.assertNotIn("temperature", parameters)
+        self.assertNotIn("max_tokens", parameters)
+
+    def test_non_reasoning_model_override_does_not_receive_reasoning_parameters(self):
+        self.create.return_value = SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="Hello"))])
+        with patch.object(backend, "MODEL", "gpt-4.1-mini"):
+            response = self.post_chat()
+        self.assertEqual(response.status_code, 200)
+        parameters = self.create.call_args.kwargs
+        self.assertEqual(parameters["temperature"], 0.35)
+        self.assertEqual(parameters["max_completion_tokens"], 700)
+        self.assertNotIn("reasoning_effort", parameters)
+        self.assertNotIn("max_tokens", parameters)
+
     def test_v2_alias_has_the_same_error_contract(self):
         self.create.side_effect = self.provider_error(401, "invalid_api_key")
         with patch.object(backend, "get_openai_client", return_value=self.upstream):
