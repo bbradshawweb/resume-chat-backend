@@ -348,28 +348,34 @@ def score_conversation_strength(
     reasons: list[str] = []
 
     contact_terms = (
-        "call",
         "coffee chat",
         "connect on linkedin",
         "connect with",
-        "contact",
-        "email",
+        "contact you",
+        "contact braden",
+        "contact form",
+        "email you",
+        "email me",
+        "your email",
+        "email address",
+        "get in touch",
         "interview",
         "linkedin",
         "reach out",
-        "schedule",
+        "schedule a call",
+        "schedule an interview",
         "set up a call",
-        "talk",
+        "can we talk",
     )
     hiring_terms = (
         "candidate",
-        "contract",
+        "contract opportunity",
         "hire",
         "hiring",
-        "job",
-        "opening",
-        "opportunity",
-        "position",
+        "job opening",
+        "open role",
+        "open position",
+        "consulting engagement",
         "recruiter",
         "recruiting",
         "talent",
@@ -391,7 +397,7 @@ def score_conversation_strength(
         "strong fit",
     )
 
-    visitor_emails = extract_visitor_emails(transcript_text)
+    visitor_emails = extract_visitor_emails(visitor_text)
     if visitor_emails:
         score += 5
         reasons.append("visitor shared an email address")
@@ -691,10 +697,12 @@ def pick_followups(user_message: str, answer: str) -> list[str]:
 
     combined = f"{user_message} {answer}".lower()
     group_name = "general"
-    if any(term in combined for term in ("revenue", "revops", "lead", "salesforce", "routing", "handoff", "workcenter", "manager", "console", "probation", "throttle", "capacity", "rep")):
-        group_name = "revenue_operations"
-    elif any(term in combined for term in ("marketing", "campaign", "source", "medium", "utm", "event", "lead quality", "cpa", "ad spend")):
+    if matched_terms(combined, ("a/b", "ab testing", "experiment", "experiments", "experimentation", "lifecycle", "variant", "variants")):
+        group_name = "lifecycle_experimentation"
+    elif matched_terms(combined, ("marketing", "campaign", "source", "medium", "utm", "event", "lead quality", "cpa", "ad spend")):
         group_name = "marketing_analytics"
+    elif matched_terms(combined, ("revenue", "revops", "lead", "salesforce", "routing", "handoff", "workcenter", "manager", "console", "probation", "throttle", "capacity", "rep")):
+        group_name = "revenue_operations"
     elif any(term in combined for term in ("research", "behavior", "psychology", "survey", "longitudinal", "publication", "toxicity", "wikipedia", "biometric", "wearable", "loneliness", "social connection")):
         group_name = "research"
     elif any(term in combined for term in ("model", "analytics", "attribution", "dashboard", "predictive", "statistics", "kpi")):
@@ -789,6 +797,8 @@ def context():
 @app.route("/contact", methods=["POST"])
 def contact():
     payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Request body must be a JSON object"}), 400
     client_key = client_hash()
     allowed, retry_after = check_rate_limit(f"contact:{client_key}")
     if not allowed:

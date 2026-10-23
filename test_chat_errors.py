@@ -179,6 +179,66 @@ class ChatErrorTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.create.assert_not_called()
 
+    def test_contact_rejects_non_object_json(self):
+        response = self.client.post("/contact", json=["invalid"])
+        self.assertEqual(response.status_code, 400)
+
+    def test_assistant_email_is_not_mistaken_for_visitor_contact(self):
+        signal = backend.score_conversation_strength(
+            "What tools do you use?", "My email is bradshaw.braden@gmail.com.", []
+        )
+        self.assertEqual(signal["visitor_emails"], [])
+        self.assertFalse(backend.should_offer_contact_handoff(signal))
+
+    def test_call_review_email_automation_and_contract_research_do_not_trigger_contact(self):
+        for question in (
+            "How do your call reviews work?",
+            "What email automation did you build?",
+            "Tell me about your university research contract.",
+        ):
+            with self.subTest(question=question):
+                signal = backend.score_conversation_strength(question, "I built custom systems.", [])
+                self.assertFalse(backend.should_offer_contact_handoff(signal))
+
+    def test_actual_contact_intent_and_visitor_email_are_preserved(self):
+        signal = backend.score_conversation_strength(
+            "Can we schedule a call? Email me at visitor@example.com.", "Happy to discuss.", []
+        )
+        self.assertEqual(signal["visitor_emails"], ["visitor@example.com"])
+        self.assertTrue(backend.should_offer_contact_handoff(signal))
+
+    def test_experiment_followups_use_the_lifecycle_project(self):
+        prompts = backend.pick_followups("Tell me about your Salesforce A/B testing reports.", "I built a custom MCP.")
+        self.assertEqual(prompts, backend.profile_context["follow_up_prompts"]["lifecycle_experimentation"])
+
+    def test_reports_do_not_accidentally_match_the_rep_keyword(self):
+        prompts = backend.pick_followups("What reports did you create?", "I use statistical modeling.")
+        self.assertEqual(prompts, backend.profile_context["follow_up_prompts"]["data_science"][:3])
+
+    def test_failed_email_delivery_does_not_consume_contact_cooldown(self):
+        backend.notification_state.clear()
+        with (
+            patch.object(backend, "NOTIFICATION_ENABLED", True),
+            patch.object(backend, "NOTIFICATION_FROM_EMAIL", "portfolio@example.com"),
+            patch.object(backend, "notification_configured", return_value=True),
+            patch.object(backend, "deliver_notification_email", return_value=False) as deliver,
+        ):
+            first = self.client.post("/contact", json={"email": "visitor@example.com", "summary": "Interested in lifecycle experiments."})
+            second = self.client.post("/contact", json={"email": "visitor@example.com", "summary": "Interested in lifecycle experiments."})
+        self.assertEqual(first.status_code, 502)
+        self.assertEqual(second.status_code, 502)
+        self.assertEqual(deliver.call_count, 2)
+        self.assertEqual(backend.notification_state, {})
+
+    def test_contact_validation_prevents_delivery_with_invalid_email(self):
+        with (
+            patch.object(backend, "notification_configured", return_value=True),
+            patch.object(backend, "deliver_notification_email") as deliver,
+        ):
+            response = self.client.post("/contact", json={"email": "not-an-email"})
+        self.assertEqual(response.status_code, 400)
+        deliver.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
